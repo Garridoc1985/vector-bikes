@@ -26,6 +26,7 @@ const expected: Record<Role, readonly Action[]> = {
     "delivery.complete",
     "reports.generate",
     "dashboard.admin",
+    "dashboard.finance",
     "catalog.edit",
     "items.override_price",
     "items.void",
@@ -71,9 +72,9 @@ const expected: Record<Role, readonly Action[]> = {
 };
 
 describe("permisos del taller", () => {
-  it("expone las 28 acciones sin duplicados", () => {
-    expect(ACTIONS).toHaveLength(28);
-    expect(new Set(ACTIONS).size).toBe(28);
+  it("expone las 29 acciones sin duplicados", () => {
+    expect(ACTIONS).toHaveLength(29);
+    expect(new Set(ACTIONS).size).toBe(29);
     expect(new Set(Object.values(expected).flat())).toEqual(new Set(ACTIONS));
   });
 

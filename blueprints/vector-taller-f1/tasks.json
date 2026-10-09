@@ -796,8 +796,8 @@
       "pnpm format && pnpm gate   # expect: exit 0"
     ],
     "checkpoint": "f1-35",
-    "files": ["src/server/taller/dashboard.ts", "src/pages/taller/index.astro", "tests/integration/dashboard.test.ts", "e2e/dashboard-mecanico.spec.ts"],
-    "status": "pending"
+    "files": ["src/server/taller/dashboard.ts", "src/pages/taller/index.astro", "tests/integration/dashboard.test.ts", "e2e/dashboard-mecanico.spec.ts", "src/server/auth/permissions.ts", "tests/unit/permissions.test.ts", "tests/integration/dashboard-finance.test.ts"],
+    "status": "done"
   },
   {
     "id": "E5-T6",
