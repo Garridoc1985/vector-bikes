@@ -2,18 +2,29 @@ import { readdirSync, readFileSync } from "node:fs";
 import { getTableColumns, getTableName } from "drizzle-orm";
 import postgres from "postgres";
 import { getDbEnv } from "../src/lib/env.ts";
+import { orderTables } from "../src/server/db/schema-orders.ts";
+import { reportTables } from "../src/server/db/schema-reports.ts";
+import { tallerTables } from "../src/server/db/schema-taller.ts";
 import { allTables } from "../src/server/db/schema.ts";
 
 const CREATE_TABLE = /CREATE TABLE(?: IF NOT EXISTS)? "(?:public"\.")?([a-z_]+)"/g;
+const DROP_TABLE = /DROP TABLE(?: IF EXISTS)? "(?:public"\.")?([a-z_]+)"/g;
 
 function tablesFromMigrations(folder: string): string[] {
   const names = new Set<string>();
-  const files = readdirSync(folder).filter((file) => file.endsWith(".sql"));
+  const files = readdirSync(folder)
+    .filter((file) => file.endsWith(".sql"))
+    .sort();
   for (const file of files) {
     const sqlText = readFileSync(`${folder}/${file}`, "utf8");
     for (const match of sqlText.matchAll(CREATE_TABLE)) {
       if (match[1]) {
         names.add(match[1]);
+      }
+    }
+    for (const match of sqlText.matchAll(DROP_TABLE)) {
+      if (match[1]) {
+        names.delete(match[1]);
       }
     }
   }
@@ -46,7 +57,7 @@ try {
     process.exit(1);
   }
   const presentColumns = new Set(columns.map((row) => `${row.table_name}.${row.column_name}`));
-  const missingColumns = allTables
+  const missingColumns = [...allTables, ...tallerTables, ...orderTables, ...reportTables]
     .flatMap((table) =>
       Object.values(getTableColumns(table)).map(
         (column) => `${getTableName(table)}.${column.name}`,

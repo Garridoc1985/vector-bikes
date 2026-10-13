@@ -847,6 +847,6 @@
     ],
     "checkpoint": "f1-37",
     "files": ["src/server/db/schema.ts", "src/server/auth/admin-auth.ts", "scripts/db-check.ts", "tests/integration/admin-auth.test.ts", "README.md"],
-    "status": "pending"
+    "status": "done"
   }
 ]

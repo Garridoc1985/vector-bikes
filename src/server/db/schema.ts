@@ -158,18 +158,6 @@ export const blockedPeriods = pgTable(
   ],
 );
 
-export const adminUsers = pgTable(
-  "admin_users",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    email: text("email").notNull(),
-    passwordHash: text("password_hash").notNull(),
-    createdAt: createdAt(),
-    updatedAt: updatedAt(),
-  },
-  (t) => [uniqueIndex("uq_admin_users_email").on(t.email)],
-);
-
 export const branches = pgTable(
   "branches",
   {
@@ -212,8 +200,9 @@ export const adminSessions = pgTable(
   "admin_sessions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    adminUserId: uuid("admin_user_id").references(() => adminUsers.id, { onDelete: "cascade" }),
-    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
     tokenHash: text("token_hash").notNull(),
     expiresAt: instant("expires_at").notNull(),
     revokedAt: instant("revoked_at"),
@@ -252,7 +241,6 @@ export const allTables = [
   bookingBlocks,
   bookingDays,
   blockedPeriods,
-  adminUsers,
   adminSessions,
   loginAttempts,
   bookingRequests,
@@ -263,6 +251,5 @@ export const allTables = [
 
 export type Booking = typeof bookings.$inferSelect;
 export type BlockedPeriod = typeof blockedPeriods.$inferSelect;
-export type AdminUser = typeof adminUsers.$inferSelect;
 export type Branch = typeof branches.$inferSelect;
 export type User = typeof users.$inferSelect;

@@ -3,7 +3,7 @@ import { promisify } from "node:util";
 import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { AppDb } from "../db/client.ts";
-import { adminSessions, adminUsers, branches, loginAttempts, users } from "../db/schema.ts";
+import { adminSessions, branches, loginAttempts, users } from "../db/schema.ts";
 import { can } from "./permissions.ts";
 import type { Role } from "./permissions.ts";
 
@@ -88,7 +88,7 @@ export type SessionUser = {
   branchId: string;
 };
 
-async function createOwner(db: AppDb, email: string, passwordHash: string, now: Date, id?: string) {
+async function createOwner(db: AppDb, email: string, passwordHash: string, now: Date) {
   const [branch] = await db.select({ id: branches.id }).from(branches).limit(1);
   const [created] = branch
     ? []
@@ -103,7 +103,6 @@ async function createOwner(db: AppDb, email: string, passwordHash: string, now: 
   const [user] = await db
     .insert(users)
     .values({
-      id,
       branchId: selected.id,
       email,
       passwordHash,
@@ -145,7 +144,6 @@ export async function setAdminPassword(
       .from(users)
       .where(eq(users.email, normalized))
       .for("update");
-    await tx.delete(adminSessions).where(isNull(adminSessions.userId));
     if (!existing) {
       await createOwner(tx, normalized, passwordHash, now);
       return "created";
@@ -187,38 +185,22 @@ export async function loginAdmin(
   }
 
   const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-  const [admin] = user
-    ? []
-    : await db
-        .select({ id: adminUsers.id, passwordHash: adminUsers.passwordHash })
-        .from(adminUsers)
-        .where(eq(adminUsers.email, email))
-        .limit(1);
-  const credentials = user ?? admin;
-  const matches = await loginPasswordMatches(args.password, credentials?.passwordHash);
-  if (!credentials || !matches || (user && !user.isActive)) {
+  const matches = await loginPasswordMatches(args.password, user?.passwordHash);
+  if (!user || !matches || !user.isActive) {
     await db.insert(loginAttempts).values({ ipHash, email, createdAt: now });
     return { ok: false, code: "invalid" };
   }
 
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(now.getTime() + SESSION_MAX_AGE * 1000);
-  const role = await db.transaction(async (tx) => {
-    const actor =
-      user ?? (await createOwner(tx, email, credentials.passwordHash, now, credentials.id));
-    if (!user) {
-      await tx.delete(adminSessions).where(isNull(adminSessions.userId));
-    }
-    await tx.insert(adminSessions).values({
-      userId: actor.id,
-      tokenHash: hashSessionToken(token),
-      expiresAt,
-      createdAt: now,
-      updatedAt: now,
-    });
-    return actor.role as Role;
+  await db.insert(adminSessions).values({
+    userId: user.id,
+    tokenHash: hashSessionToken(token),
+    expiresAt,
+    createdAt: now,
+    updatedAt: now,
   });
-  return { ok: true, token, expiresAt, role };
+  return { ok: true, token, expiresAt, role: user.role as Role };
 }
 
 /** Un token de sesión mide 43 caracteres base64url; lo demás no llega a la base. */

@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
@@ -14,13 +13,7 @@ import {
   setAdminPassword,
   verifyPassword,
 } from "../../src/server/auth/admin-auth.ts";
-import {
-  adminSessions,
-  adminUsers,
-  branches,
-  loginAttempts,
-  users,
-} from "../../src/server/db/schema.ts";
+import { adminSessions, branches, loginAttempts, users } from "../../src/server/db/schema.ts";
 import type { TestDb } from "../helpers/pglite.ts";
 import { createTestDb } from "../helpers/pglite.ts";
 
@@ -52,29 +45,6 @@ function firstRow<T>(rows: T[]): T {
     throw new Error("Falta la fila de prueba");
   }
   return row;
-}
-
-async function seedLegacy(test: TestDb) {
-  const admin = firstRow(
-    await test.db
-      .insert(adminUsers)
-      .values({
-        email: EMAIL,
-        passwordHash: await hashPassword(PASSWORD),
-        createdAt: NOW,
-        updatedAt: NOW,
-      })
-      .returning(),
-  );
-  const token = "legacy-session-token".padEnd(43, "x");
-  await test.db.insert(adminSessions).values({
-    adminUserId: admin.id,
-    tokenHash: createHash("sha256").update(token).digest("hex"),
-    expiresAt: later(7 * DAY_MS),
-    createdAt: NOW,
-    updatedAt: NOW,
-  });
-  return { admin, token };
 }
 
 describe("hash de claves", () => {
@@ -170,82 +140,23 @@ describe("acceso admin", () => {
     expect(await requireAdmin(test.db, "no válido", NOW)).toBeNull();
   });
 
-  it("copia al dueño legado con el mismo id y reemplaza la sesión legada en el primer login", async () => {
-    const { admin, token } = await seedLegacy(test);
-    expect(await requireAdmin(test.db, token, NOW)).toBeNull();
-
-    const result = await login(test);
-
-    expect(result.ok && result.role).toBe("owner");
-    const branch = firstRow(await test.db.select().from(branches));
-    expect(branch.name).toBe("Vitacura");
-    const [user] = await test.db.select().from(users);
-    expect(user).toMatchObject({
-      id: admin.id,
-      email: EMAIL,
-      passwordHash: admin.passwordHash,
-      role: "owner",
-      name: "andres",
-      branchId: branch.id,
-    });
-    expect(await test.db.select().from(adminUsers)).toEqual([admin]);
-    const sessions = await test.db.select().from(adminSessions);
-    expect(sessions).toHaveLength(1);
-    expect(sessions[0]).toMatchObject({ userId: admin.id, adminUserId: null });
-    expect(await requireAdmin(test.db, token, NOW)).toBeNull();
-    if (result.ok) {
-      expect(await requireAdmin(test.db, result.token, NOW)).toEqual({
-        id: admin.id,
-        email: EMAIL,
-        name: "andres",
-        role: "owner",
-        branchId: branch.id,
-      });
-    }
-  });
-
-  it("autentica los siguientes ingresos contra users sin volver a copiar al legado", async () => {
-    await seedLegacy(test);
-    await tokenOf(test);
-    const before = await test.db.select().from(users);
-    await test.db.update(adminUsers).set({ passwordHash: await hashPassword("otra-clave-legada") });
-
-    expect((await login(test)).ok).toBe(true);
-
-    expect(await test.db.select().from(users)).toEqual(before);
-    expect(await test.db.select().from(branches)).toHaveLength(1);
-    expect(await test.db.select().from(adminSessions)).toHaveLength(2);
-    expect(await login(test, "otra-clave-legada")).toEqual({ ok: false, code: "invalid" });
-    expect(await test.db.select().from(loginAttempts)).toHaveLength(1);
-  });
-
-  it("reutiliza la primera sucursal al copiar al dueño legado", async () => {
-    const branch = firstRow(
-      await test.db.insert(branches).values({ name: "Sucursal existente" }).returning(),
+  it("las migraciones eliminan la tabla y la columna de autenticación legada", async () => {
+    const columns = await test.client.query(
+      `select column_name from information_schema.columns
+       where table_schema = 'public' and table_name = 'admin_sessions'
+       and column_name = 'admin_user_id'`,
     );
-    await seedLegacy(test);
+    const tables = await test.client.query(
+      `select table_name from information_schema.tables
+       where table_schema = 'public' and table_name = 'admin_users'`,
+    );
 
-    await tokenOf(test);
-
-    const user = firstRow(await test.db.select().from(users));
-    expect(user.branchId).toBe(branch.id);
-    expect(await test.db.select().from(branches)).toEqual([branch]);
-  });
-
-  it("una clave legada incorrecta registra el fallo sin copiar ni borrar sesiones", async () => {
-    await seedLegacy(test);
-    const sessions = await test.db.select().from(adminSessions);
-
-    expect(await login(test, "clave-equivocada")).toEqual({ ok: false, code: "invalid" });
-
-    expect(await test.db.select().from(loginAttempts)).toHaveLength(1);
-    expect(await test.db.select().from(branches)).toHaveLength(0);
-    expect(await test.db.select().from(users)).toHaveLength(0);
-    expect(await test.db.select().from(adminSessions)).toEqual(sessions);
+    expect(columns.rows).toEqual([]);
+    expect(tables.rows).toEqual([]);
   });
 
   it("rechaza la sesión exactamente al expirar y cuando se desactiva al usuario", async () => {
-    await seedLegacy(test);
+    await setAdminPassword(test.db, EMAIL, PASSWORD, NOW);
     const token = await tokenOf(test);
     expect(await requireAdmin(test.db, token, later(7 * DAY_MS))).toBeNull();
     await test.db.update(users).set({ isActive: false });
@@ -266,9 +177,7 @@ describe("acceso admin", () => {
     expect(await test.db.select().from(adminSessions)).toHaveLength(0);
   });
 
-  it("setAdminPassword crea un owner y limpia sesiones legadas conservando admin_users", async () => {
-    const { admin, token } = await seedLegacy(test);
-
+  it("setAdminPassword crea un owner y su sucursal sin abrir sesiones", async () => {
     expect(await setAdminPassword(test.db, "nuevo@vectorbikes.cl", PASSWORD, NOW)).toBe("created");
 
     const branch = firstRow(await test.db.select().from(branches));
@@ -281,33 +190,21 @@ describe("acceso admin", () => {
       branchId: branch.id,
     });
     expect(await verifyPassword(PASSWORD, user.passwordHash)).toBe(true);
-    expect(await test.db.select().from(adminUsers)).toEqual([admin]);
     expect(await test.db.select().from(adminSessions)).toHaveLength(0);
-    expect(await requireAdmin(test.db, token, NOW)).toBeNull();
   });
 
-  it("al cambiar la clave limpia las sesiones legadas y conserva el rol y otras sesiones", async () => {
-    const { admin } = await seedLegacy(test);
-    await tokenOf(test);
-    await test.db.update(users).set({ role: "mechanic" }).where(eq(users.id, admin.id));
+  it("al cambiar la clave conserva el rol y las sesiones de otros usuarios", async () => {
+    await setAdminPassword(test.db, EMAIL, PASSWORD, NOW);
+    const userBefore = firstRow(await test.db.select().from(users));
+    await test.db.update(users).set({ role: "mechanic" }).where(eq(users.id, userBefore.id));
     const firstToken = await tokenOf(test);
     const secondToken = await tokenOf(test);
-    await test.db.insert(adminSessions).values({
-      adminUserId: admin.id,
-      tokenHash: "b".repeat(64),
-      expiresAt: later(DAY_MS),
-    });
     await setAdminPassword(test.db, "otro@vectorbikes.cl", PASSWORD, NOW);
     const other = await loginAdmin(test.db, {
       email: "otro@vectorbikes.cl",
       password: PASSWORD,
       ipHash: IP_HASH,
       now: NOW,
-    });
-    await test.db.insert(adminSessions).values({
-      adminUserId: admin.id,
-      tokenHash: "c".repeat(64),
-      expiresAt: later(DAY_MS),
     });
 
     expect(await setAdminPassword(test.db, EMAIL, "otra-clave-muy-larga", later(1000))).toBe(
@@ -318,12 +215,9 @@ describe("acceso admin", () => {
     expect(await requireAdmin(test.db, secondToken, later(2000))).toBeNull();
     expect(other.ok).toBe(true);
     if (other.ok) expect(await requireAdmin(test.db, other.token, later(2000))).not.toBeNull();
-    const user = firstRow(await test.db.select().from(users).where(eq(users.id, admin.id)));
+    const user = firstRow(await test.db.select().from(users).where(eq(users.id, userBefore.id)));
     expect(user.role).toBe("mechanic");
     expect(await verifyPassword("otra-clave-muy-larga", user.passwordHash)).toBe(true);
-    expect(
-      (await test.db.select().from(adminSessions)).every((session) => session.userId !== null),
-    ).toBe(true);
     expect((await login(test, "otra-clave-muy-larga")).ok).toBe(true);
     expect(await login(test)).toEqual({ ok: false, code: "invalid" });
   });

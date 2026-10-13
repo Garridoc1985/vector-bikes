@@ -31,6 +31,8 @@ Si olvidas la clave, no hay botón de "recuperar": hay que cambiarla como se exp
 
 ### Cambiar la clave del panel
 
+El dueño también puede restablecer las claves de otros usuarios en `/taller/usuarios`: escribe una clave nueva de al menos 12 caracteres y pulsa **Restablecer clave**. Se cierran las sesiones de ese usuario. Para cambiar tu propia clave o recuperar el acceso del dueño, usa el comando de abajo.
+
 Se hace desde el workspace de la App en Replit (el editor, no el sitio publicado):
 
 1. En Replit, abre la herramienta **Database**, cambia a la base de **producción** y copia su URL de conexión (empieza con `postgresql://`). Esa URL es secreta: no la pegues en correos, chats ni en el repositorio.
@@ -59,6 +61,65 @@ Revisa en este orden:
 4. **Aviso del navegador sobre el certificado.** Casi siempre es el TXT `replit-verify` borrado. Vuelve a crearlo.
 
 Nunca toques los registros MX, SPF ni autodiscover de Microsoft 365: son los que hacen que `info@vectorbikes.cl` reciba correo.
+
+## Operación del taller
+
+### Acceso y equipo
+
+Entra por `/admin/login` con tu correo y clave y abre `/taller`. También puedes abrir `/taller` directamente: si falta la sesión, el login te devuelve ahí. El mecánico entra al taller; dueño, administrador y recepción llegan por defecto a la agenda `/admin` y pueden pasar al taller.
+
+Solo el dueño administra el equipo en `/taller/usuarios`: crea usuarios con nombre, correo, rol y clave inicial de 12 a 1024 caracteres. Desde la misma pantalla puede cambiar el rol, desactivar, reactivar y restablecer claves de otros usuarios. Desactivar o cambiar el rol revoca sus sesiones. No puedes modificar tu propio usuario ahí y debe quedar al menos un dueño activo en la sucursal.
+
+### Recepción en la tablet
+
+La recepción la puede hacer cualquier rol, incluido el mecánico. El mecánico accede a sus órdenes y a las recepciones sin asignar en estado Reservada, Recibida o Diagnóstico.
+
+1. Abre **Nueva recepción** en `/taller/recepcion/nueva`, o inicia la recepción desde una reserva en `/taller/reservas` para traer sus datos.
+2. Busca al cliente por nombre, teléfono o RUT y usa su ficha y bicicleta. Si es nuevo, registra nombre y teléfono; correo y RUT son opcionales. Para una bicicleta nueva, completa marca, modelo y tipo. Escribe el servicio solicitado y pulsa **Crear orden**.
+3. Completa todos los puntos del **Checklist**, anota observaciones y guarda. Registra los accesorios que quedan con la bici y agrega los servicios del catálogo; el precio corresponde al tipo de bicicleta. El mecánico puede agregar servicios del catálogo, pero no cambiar precios.
+4. Revisa la fecha sugerida según la carga del taller y pulsa **Confirmar fecha** con la fecha acordada con el cliente.
+5. Pulsa **Continuar a fotos y firma**. Toma al menos una foto de recepción y espera a que termine de subir. Pide la firma del cliente en la tablet y escribe el nombre de quien firma.
+6. Pulsa **Finalizar recepción**. Solo se completa con checklist, foto, fecha confirmada y firma; la orden queda **Recibida**. Si faltan datos, la pantalla los indica.
+
+### Etiqueta y trabajo
+
+Desde el detalle de la orden, abre **Etiqueta** y pulsa **Imprimir**. Selecciona la impresora de etiquetas con papel de **62 mm**, sin márgenes. La etiqueta lleva el número de orden, nombre del cliente, entrega estimada y QR; el QR abre la orden interna y requiere sesión. Haz una impresión de prueba para revisar el tamaño y la lectura antes de usarla en una bici.
+
+En la orden se asigna el mecánico; un mecánico puede **Tomar orden** si está sin asignar y Recibida o en Diagnóstico. Registra el diagnóstico, cambia a los estados disponibles y usa **Galería** para las fotos de reparación y terminado. **Líneas** registra servicios y repuestos; **Componentes** conserva lo instalado y lo reemplazado en el historial de la bicicleta.
+
+### Trabajos adicionales por WhatsApp
+
+Dueño, administrador o recepción abren **Adicional**, escriben problema, recomendación y precio en pesos y pulsan **Crear propuesta**. Copia el enlace en ese momento o pulsa **Enviar por WhatsApp** y envía el mensaje desde WhatsApp. El cliente abre el enlace y aprueba o rechaza; la decisión queda registrada y el trabajo aprobado se agrega a la orden. Si necesitas otro enlace para una propuesta pendiente, pulsa **Generar nuevo enlace**: el anterior deja de servir. El mecánico no propone adicionales ni modifica precios.
+
+### Control de calidad
+
+Al terminar la reparación, pasa la orden a **Control de calidad** y abre esa pantalla en la tablet. Solo el dueño puede registrar la revisión: marca **OK** o **Falla** en todos los puntos, anota lo necesario y pulsa **Aprobar control**. Si todo está OK, queda **Lista para retirar**; si hay una falla, vuelve a **En reparación** y conserva el historial. Actualmente se permite el autocontrol del dueño y queda identificado en el historial.
+
+### Pagos y entrega
+
+Dueño, administrador o recepción abren **Entrega** para registrar un abono o pago final, con método transferencia, tarjeta, efectivo u otro, y monto entero en pesos. Solo puede haber un abono vigente; el monto no puede superar el saldo. Dueño y administrador pueden anular pagos antes de entregar.
+
+Cuando la orden esté **Lista para retirar**, registra el pago pendiente hasta dejar saldo cero. Pide la firma de quien retira, confirma su nombre y pulsa **Entregar bicicleta**. La entrega exige saldo cero y firma; queda **Entregada**. La pantalla registra los pagos recibidos en el taller.
+
+### Informe e historial
+
+Dueño, administrador o recepción pueden abrir **Informe** cuando la orden esté Lista para retirar o Entregada. Revisa las recomendaciones sugeridas por los servicios, completa **Próximas revisiones** y pulsa **Generar informe**. Copia el enlace que aparece una sola vez o envíalo por WhatsApp. El cliente ve bicicleta, trabajo, problemas, componentes, fotos de antes y después, recomendaciones, trabajos rechazados y total. Regenerar el informe actualiza su contenido e invalida el enlace anterior. Las fichas de cliente y bicicleta conservan su historial.
+
+### Garantía
+
+En una orden **Entregada**, dueño, administrador o recepción pueden escribir el motivo y pulsar **Abrir garantía**. Se crea otra orden para el mismo cliente y bicicleta, vinculada a la original, y se abre su recepción. Completa nuevamente checklist, fotos, fecha y firma; la orden original se conserva.
+
+### Si falla una foto
+
+Espera el resultado de la subida. Si aparece **No se pudo subir la foto. Intenta de nuevo.**, revisa la conexión y vuelve a seleccionarla. El límite es **15 MB por foto** y el archivo debe ser una imagen. Si seleccionaste varias y una falla, recarga la galería para comprobar cuáles quedaron guardadas antes de reintentar las pendientes. La recepción exige al menos una foto guardada. Conviene subir las fotos antes de firmar: una subida exitosa recarga la página.
+
+### Tareas diarias y respaldos
+
+El escenario de **Make.com** se configura para las **10:00**, zona **America/Santiago**, y encadena tres llamadas POST: `/api/tareas/recordatorios`, `/api/tareas/alertas` y `/api/tareas/retencion`, con `Authorization: Bearer <TASKS_SECRET>`. El secreto va en Make.com y en los secretos de la publicación. Configura un aviso al dueño ante respuestas fallidas; los detalles están en **Recordatorios por correo (cron externo)**.
+
+Recordatorios envía los correos del día anterior; alertas manda al taller el resumen de órdenes atrasadas y debe llamarse una sola vez al día. Retención elimina las copias completas de fotos de recepción de más de seis meses y conserva las miniaturas para el historial e informe. Las fotos de reparación y terminado se conservan. La integración opcional de recordatorios WhatsApp tiene su propio cron, descrito en **Recordatorios**.
+
+Confirma en el panel **Database** de Replit que los respaldos programados de la base estén activos y revisa sus puntos de restauración. Las fotos y firmas están en almacenamiento separado: respalda también ese almacenamiento junto con la base. La aplicación no programa respaldos; esa configuración se administra en la plataforma.
 
 ## Publicar
 
@@ -181,7 +242,7 @@ Las variables `PUBLIC_*` se hornean en el build: después de cambiarlas hay que 
 
 ### 3. Esquema de producción
 
-Tras la primera publicación, abre el panel *Database* de producción y confirma que están las 9 tablas: `bookings`, `booking_blocks`, `booking_days`, `blocked_periods`, `admin_users`, `admin_sessions`, `login_attempts`, `booking_requests` y `whatsapp_messages`. La app nunca migra ni se corre `pnpm db:migrate` contra producción.
+Confirma que `pnpm db:check` sale `{"ok":true,...}` en desarrollo y que esas tablas aparecen en el panel *Database* de producción. La app nunca migra ni se corre `pnpm db:migrate` contra producción.
 
 ### 4. Cuenta admin en producción
 

@@ -64,7 +64,7 @@ afterEach(async () => {
   await test.close();
 });
 
-it("aplica las migraciones con columnas nuevas y admin_users intacta", async () => {
+it("aplica las migraciones con la autenticación legada contraída", async () => {
   const result = await test.client.query<{
     table_name: string;
     column_name: string;
@@ -75,9 +75,12 @@ it("aplica las migraciones con columnas nuevas y admin_users intacta", async () 
        ('branches', 'users', 'admin_users', 'admin_sessions', 'bookings')`,
   );
   const columns = result.rows;
-  expect(
-    columns.filter((row) => row.table_name === "admin_users").map((row) => row.column_name),
-  ).toEqual(["id", "email", "password_hash", "created_at", "updated_at"]);
+  expect(columns.filter((row) => row.table_name === "admin_users")).toEqual([]);
+  const legacyTables = await test.client.query(
+    `select table_name from information_schema.tables
+     where table_schema = 'public' and table_name = 'admin_users'`,
+  );
+  expect(legacyTables.rows).toEqual([]);
   for (const tableName of ["branches", "users"]) {
     for (const columnName of ["id", "created_at", "updated_at"]) {
       expect(columns).toContainEqual({
@@ -90,13 +93,13 @@ it("aplica las migraciones con columnas nuevas y admin_users intacta", async () 
   expect(columns).toContainEqual({
     table_name: "admin_sessions",
     column_name: "user_id",
-    is_nullable: "YES",
+    is_nullable: "NO",
   });
-  expect(columns).toContainEqual({
-    table_name: "admin_sessions",
-    column_name: "admin_user_id",
-    is_nullable: "YES",
-  });
+  expect(
+    columns.filter(
+      (row) => row.table_name === "admin_sessions" && row.column_name === "admin_user_id",
+    ),
+  ).toEqual([]);
   expect(columns).toContainEqual({
     table_name: "bookings",
     column_name: "source",
@@ -111,16 +114,14 @@ it("no siembra sucursales ni usuarios al migrar", async () => {
   expect(counts.rows).toEqual([{ branches: 0, users: 0 }]);
 });
 
-it("mantiene operativo el usuario y la sesión legados", async () => {
-  const legacy = await test.client.query<{ id: string }>(
-    "insert into admin_users (email, password_hash) values ('legacy@ejemplo.cl', 'test-hash') returning id",
+it("rechaza una sesión sin user_id con SQLSTATE 23502", async () => {
+  await expectSqlState(
+    test.client.query(
+      `insert into admin_sessions (token_hash, expires_at)
+       values ('session-without-user', '2026-10-06T12:00:00Z')`,
+    ),
+    "23502",
   );
-  const session = await test.client.query<{ admin_user_id: string; user_id: null }>(
-    `insert into admin_sessions (admin_user_id, token_hash, expires_at)
-       values ($1, 'legacy-session-hash', '2026-10-06T12:00:00Z') returning admin_user_id, user_id`,
-    [legacy.rows[0]?.id],
-  );
-  expect(session.rows).toEqual([{ admin_user_id: legacy.rows[0]?.id, user_id: null }]);
 });
 
 it("rechaza un rol inválido con SQLSTATE 23514", async () => {
@@ -149,14 +150,14 @@ it("rechaza un origen inválido con SQLSTATE 23514", async () => {
   await expectSqlState(insertBooking(test, "email"), "23514");
 });
 
-it("acepta una sesión sin admin_user_id y la elimina al borrar su usuario", async () => {
+it("acepta una sesión por user_id y la elimina al borrar su usuario", async () => {
   const user = await insertUser(test, await insertBranch(test));
-  const session = await test.client.query<{ admin_user_id: null; user_id: string }>(
+  const session = await test.client.query<{ user_id: string }>(
     `insert into admin_sessions (user_id, token_hash, expires_at)
-       values ($1, 'new-session-hash', '2026-10-06T12:00:00Z') returning admin_user_id, user_id`,
+       values ($1, 'new-session-hash', '2026-10-06T12:00:00Z') returning user_id`,
     [user?.id],
   );
-  expect(session.rows).toEqual([{ admin_user_id: null, user_id: user?.id }]);
+  expect(session.rows).toEqual([{ user_id: user?.id }]);
   await test.client.query("delete from users where id = $1", [user?.id]);
   expect((await test.client.query("select id from admin_sessions")).rows).toEqual([]);
 });

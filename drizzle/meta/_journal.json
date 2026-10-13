@@ -134,6 +134,20 @@
       "when": 1791510651718,
       "tag": "0018_premium_miek",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791899148620,
+      "tag": "0019_useful_shadow_king",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791899161822,
+      "tag": "0020_perfect_thor_girl",
+      "breakpoints": true
     }
   ]
 }
