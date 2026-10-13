@@ -78,8 +78,7 @@ function attempt(email: string, password: string, now = LATER) {
 }
 
 async function render(token?: string, data?: Record<string, string>, origin = SITE) {
-  const headers: Record<string, string> = {};
-  if (token) headers.cookie = `vb_admin_session=${token}`;
+  const headers: Record<string, string> = token ? { cookie: `vb_admin_session=${token}` } : {};
   if (data) {
     headers.origin = origin;
     headers["content-type"] = "application/x-www-form-urlencoded";
@@ -90,7 +89,8 @@ async function render(token?: string, data?: Record<string, string>, origin = SI
     body: data ? new URLSearchParams(data) : undefined,
   });
   const container = await AstroContainer.create({ astroConfig: { site: SITE } });
-  return container.renderToResponse(UsersPage, { request });
+  vi.useFakeTimers({ toFake: ["Date"], now: LATER }); // la sesión de NOW dura 7 días
+  return container.renderToResponse(UsersPage, { request }).finally(() => vi.useRealTimers());
 }
 
 beforeEach(async () => {
