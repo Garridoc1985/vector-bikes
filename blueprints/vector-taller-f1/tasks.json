@@ -821,7 +821,7 @@
     ],
     "checkpoint": "f1-36",
     "files": ["src/server/api/task-handlers.ts", "src/pages/api/tareas/alertas.ts", "src/pages/api/tareas/retencion.ts", "src/server/taller/maintenance.ts", "tests/integration/tasks-maintenance.test.ts", "README.md"],
-    "status": "pending"
+    "status": "done"
   },
   {
     "id": "E5-T7",

@@ -117,6 +117,8 @@ El recordatorio del día anterior a cada reserva lo dispara un escenario de **Ma
 - Llamarlo dos veces el mismo día no duplica correos: cada reserva queda marcada con `reminder_sent_at`.
 - Respaldo manual: `pnpm reminders:send` sigue existiendo y hace lo mismo desde el Shell de Replit con el `DATABASE_URL` de producción.
 
+El mismo escenario de Make.com encadena, después del primero, `POST https://vectorbikes.cl/api/tareas/alertas` (correo diario al taller con las órdenes atrasadas; cada llamada envía un resumen, por eso se llama una sola vez al día) y `POST https://vectorbikes.cl/api/tareas/retencion` (borra las copias completas de fotos de recepción con más de 6 meses y conserva las miniaturas; repetirla no hace nada), con la misma cabecera.
+
 ## Recordatorios
 
 La integración directa con **WhatsApp Business Cloud API de Meta** es opcional. Los correos de reserva y notificación al taller siguen siendo independientes: un fallo o la desactivación de WhatsApp no los sustituye ni los desactiva.

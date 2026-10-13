@@ -3,6 +3,14 @@ import { getTasksEnv } from "../../lib/env.ts";
 import { errorMessage, log } from "../../lib/log.ts";
 import type { AppDb } from "../db/client.ts";
 import { sendReminders } from "../email/reminders.ts";
+import type { EmailTransport } from "../email/transport.ts";
+import { getStorage } from "../storage/storage.ts";
+import type { ObjectStorage } from "../storage/storage.ts";
+import {
+  OverdueDigestError,
+  purgeReceptionPhotos,
+  sendOverdueDigest,
+} from "../taller/maintenance.ts";
 import { jsonResponse } from "./handlers.ts";
 
 export function isAuthorizedTask(header: string | null, secret: string | undefined): boolean {
@@ -45,5 +53,46 @@ export async function handleRemindersTask(
   } catch (error) {
     log.error("tasks.reminders_failed", { message: errorMessage(error) });
     return jsonResponse(500, { ok: false, error: "internal_error" });
+  }
+}
+
+export async function handleAlertsTask(
+  request: Request,
+  db: AppDb,
+  now: Date,
+  deps: { secret?: string; transport?: EmailTransport } = {},
+): Promise<Response> {
+  const rejected = taskGuard(request, "alerts", deps.secret);
+  if (rejected) return rejected;
+  try {
+    const result = await sendOverdueDigest(db, now, deps);
+    return jsonResponse(200, { ok: true, ...result });
+  } catch (error) {
+    const overdue = error instanceof OverdueDigestError ? error.overdue : 0;
+    log.error("tasks.alerts_failed", { overdue });
+    return jsonResponse(500, { ok: false, overdue, sent: false });
+  }
+}
+
+export async function handleRetentionTask(
+  request: Request,
+  db: AppDb,
+  now: Date,
+  deps: { secret?: string; storage?: ObjectStorage } = {},
+): Promise<Response> {
+  const rejected = taskGuard(request, "retention", deps.secret);
+  if (rejected) return rejected;
+  try {
+    const { purged, failed } = await purgeReceptionPhotos(
+      db,
+      deps.storage ?? (await getStorage()),
+      now,
+    );
+    return failed === 0
+      ? jsonResponse(200, { ok: true, purged })
+      : jsonResponse(500, { ok: false, purged, failed });
+  } catch {
+    log.error("tasks.retention_failed");
+    return jsonResponse(500, { ok: false, purged: 0, failed: 1 });
   }
 }
