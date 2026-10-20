@@ -88,7 +88,7 @@
 .taller .taller-group li + li {
   margin-top: 4px;
 }
-.taller nav a {
+.taller .taller-panel nav a {
   display: flex;
   width: 100%;
   border: 1px solid transparent;
@@ -99,11 +99,11 @@
     color var(--dur-fast) var(--ease),
     border-color var(--dur-fast) var(--ease);
 }
-.taller nav a:hover {
+.taller .taller-panel nav a:hover {
   border-color: var(--field-border);
   color: var(--ink);
 }
-.taller nav a[aria-current="page"] {
+.taller .taller-panel nav a[aria-current="page"] {
   border-color: var(--ink);
   background: var(--ink);
   color: var(--on-ink);
@@ -122,6 +122,13 @@
   max-width: 1180px;
   margin-inline: auto;
   padding: 32px clamp(16px, 4vw, 40px);
+}
+/* Superficie con regla de 1px; la comparten las pantallas del área. */
+.taller .card {
+  padding: 16px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: var(--surface);
 }
 @media (min-width: 1024px) {
   .taller {
