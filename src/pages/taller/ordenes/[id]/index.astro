@@ -15,7 +15,9 @@ import { formatOrderNumber, openWarrantyOrder } from "../../../../server/taller/
 import {
   BIKE_TYPE_LABELS,
   MANUAL_TRANSITIONS,
+  ORDER_STATUSES,
   STATUS_LABELS,
+  TERMINAL_STATUSES,
 } from "../../../../server/taller/rules.ts";
 import type { BikeType, OrderStatus } from "../../../../server/taller/rules.ts";
 import {
@@ -141,12 +143,50 @@ if (!detail.ok) {
 }
 const { order, customer, bike, history, warrantyOfNumber, mechanicName } = detail;
 const number = formatOrderNumber(order.number);
-const targets = (MANUAL_TRANSITIONS[order.status as OrderStatus] as readonly OrderStatus[]).filter(
-  (target) =>
-    can(
-      user.role,
-      target === "cancelada" || target === "trabajo_rechazado" ? "orders.cancel" : "orders.edit",
-    ),
+const transitions: readonly OrderStatus[] = MANUAL_TRANSITIONS[order.status as OrderStatus];
+const statusOptions = ORDER_STATUSES.filter(
+  (status) => status !== "cancelada" && status !== "trabajo_rechazado",
+);
+const hasManualTransition = statusOptions.some((status) => transitions.includes(status));
+const cancellationTargets = (["cancelada", "trabajo_rechazado"] as const).filter(
+  (status) => can(user.role, "orders.cancel") && transitions.includes(status),
+);
+const statusHints: Partial<Record<OrderStatus, string>> = {
+  recibida: "se completa en Fotos y firma",
+  esperando_aprobacion: "se activa al crear un Adicional",
+  lista_para_retirar: "se completa en Control de calidad",
+  entregada: "se completa en Entrega",
+};
+const nextStep = (
+  [
+    {
+      status: "reservada",
+      suffix: "recepcion",
+      label: "Ir a Recepción",
+      permission: "reception.perform",
+    },
+    {
+      status: "esperando_aprobacion",
+      suffix: "adicional",
+      label: "Ir a Adicional",
+      permission: "approvals.create",
+    },
+    {
+      status: "control_calidad",
+      suffix: "control",
+      label: "Ir a Control de calidad",
+      permission: "orders.edit",
+    },
+    {
+      status: "lista_para_retirar",
+      suffix: "entrega",
+      label: "Ir a Entrega",
+      permission: "delivery.complete",
+    },
+  ] as const
+).find((step) => step.status === order.status && can(user.role, step.permission));
+const isTerminal = (TERMINAL_STATUSES as readonly OrderStatus[]).includes(
+  order.status as OrderStatus,
 );
 const mechanics = await listMechanics(db, user);
 const canTake =
@@ -187,12 +227,26 @@ const tabs = ORDER_TABS.filter((tab) => can(user.role, tab.permission));
         </form>}
         {canTake && <form method="post" action={PATH}><input type="hidden" name="action" value="take" /><button class="btn" type="submit">Tomar orden</button></form>}
       </Card>
-      {targets.length > 0 && <Card id="status-title" title="Cambiar estado">
-        <form method="post" action={PATH}>
+      {!isTerminal && <Card id="status-title" title="Estado de la orden">
+        <form class="order-status-form" method="post" action={PATH}>
           <input type="hidden" name="action" value="status" />
+          <div class="status-selection">
+            <div class="field">
+              <label for="status-to">Estado</label>
+              <select id="status-to" name="to" required disabled={!hasManualTransition}>
+                <option value="" selected>Selecciona un estado</option>
+                {statusOptions.map((status) => <option value={status} disabled={status === order.status || !transitions.includes(status)}>{status === order.status ? `${STATUS_LABELS[status]} (actual)` : !transitions.includes(status) && statusHints[status] ? `${STATUS_LABELS[status]} — ${statusHints[status]}` : STATUS_LABELS[status]}</option>)}
+              </select>
+            </div>
+            {nextStep && <a class="btn ghost" href={`${PATH}/${nextStep.suffix}`}>{nextStep.label}</a>}
+          </div>
           <div class="field"><label for="note">Nota del cambio (opcional)</label><textarea id="note" name="note" rows="2" maxlength="2000" aria-invalid={Boolean(fieldErrors.note)} aria-describedby={fieldErrors.note ? "note-error" : undefined}>{values.note ?? ""}</textarea>{fieldErrors.note && <p id="note-error">{fieldErrors.note}</p>}</div>
-          <div class="options">{targets.map((target) => <button class="btn" type="submit" name="to" value={target}>Pasar a {STATUS_LABELS[target]}</button>)}</div>
+          <button class="btn" type="submit" disabled={!hasManualTransition}>Actualizar estado</button>
         </form>
+        {cancellationTargets.length > 0 && <form method="post" action={PATH}>
+          <input type="hidden" name="action" value="status" />
+          <div class="options">{cancellationTargets.map((target) => <button class="btn ghost" type="submit" name="to" value={target}>{target === "cancelada" ? "Cancelar orden" : "Marcar trabajo rechazado"}</button>)}</div>
+        </form>}
       </Card>}
       {order.status === "entregada" && can(user.role, "warranty.open") && <Card id="warranty-title" title="Abrir garantía">
         <form method="post" action={PATH}>
@@ -231,6 +285,31 @@ const tabs = ORDER_TABS.filter((tab) => can(user.role, tab.permission));
     grid-template-columns: minmax(0, 1fr);
     align-items: start;
     gap: 16px;
+  }
+  /* Un control inerte tiene que verse inerte: sin esto el botón deshabilitado
+     queda idéntico al primario. Solo tokens, ningún hex nuevo. */
+  .taller .status-selection :disabled,
+  .taller .status-selection option:disabled {
+    border-color: var(--rule);
+    background: var(--hatch);
+    color: var(--steel);
+    cursor: not-allowed;
+  }
+  .taller .order-status-form button:disabled {
+    border-color: var(--rule);
+    background: var(--hatch);
+    color: var(--steel);
+    cursor: not-allowed;
+  }
+  .taller .status-selection {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 8px;
+  }
+  .taller .status-selection .field {
+    flex: 1 1 260px;
+    min-width: 0;
   }
   @media (min-width: 900px) {
     .taller .order-cols {
