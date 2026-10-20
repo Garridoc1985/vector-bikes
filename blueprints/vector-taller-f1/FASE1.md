@@ -418,5 +418,6 @@ Después, un `/the-architect:architect-next` por paso, igual que en las 14 tarea
 - `FASE2.md` — El dinero y las piezas: inventario, consumo de repuestos, alertas de stock, proveedores y compras, caja con Mercado Pago, descuentos, devoluciones, códigos de barra y bicicletas usadas.
 - `FASE3.md` — La inteligencia: componentes con kilómetros, Strava, mantenimiento predictivo, asistente de WhatsApp, reseñas de Google y fichas de suspensiones.
 - `FASE4.md` — Crecimiento: multi-sucursal, convenios y tienda online.
+- `../roadmap/dashboard-financiero.md` — Dashboard financiero y operativo completo, pedido el 20-10-2026: qué indicadores salen de la fase 1, cuáles dependen de la fase 2 y cuáles cierran después. La fase 2 debe guardar desde el inicio los datos que ese panel necesita.
 
 **La fase 1 tiene que estar en uso antes de empezar la fase 2.** Es la única garantía de que el sistema se diseñe alrededor de cómo trabajan realmente los mecánicos, y no alrededor de cómo se imaginó que trabajarían.
