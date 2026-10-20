@@ -11,7 +11,11 @@ export default defineConfig({
   integrations: [
     preact(),
     sitemap({
-      filter: (page) => !page.includes("/admin") && !page.includes("/reservas"),
+      // Lista blanca a propósito: solo entran las páginas públicas que nombramos
+      // aquí. Con una lista negra, cada ruta nueva se publicaba sola (así se
+      // colaron 8 rutas de /taller al sitemap de producción).
+      filter: (page) =>
+        ["/", "/privacidad"].includes(new URL(page).pathname.replace(/\/$/, "") || "/"),
     }),
   ],
   security: {

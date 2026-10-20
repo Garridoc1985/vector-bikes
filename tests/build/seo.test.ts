@@ -74,6 +74,9 @@ describe("SEO del build", () => {
     expect(sitemap).toContain("/privacidad");
     expect(sitemap).not.toContain("/admin");
     expect(sitemap).not.toContain("/reservas");
+    expect(sitemap).not.toContain("/taller");
+    // Lista blanca: solo la landing y la privacidad. Una página nueva no entra sola.
+    expect(sitemap.split("<loc>").length - 1).toBe(2);
   });
 
   it("robots.txt bloquea el panel y la cancelación", () => {
@@ -81,5 +84,9 @@ describe("SEO del build", () => {
 
     expect(robots).toContain("Disallow: /admin");
     expect(robots).toContain("Disallow: /reservas/cancelar");
+  });
+
+  it("robots.txt bloquea el área del taller", () => {
+    expect(read("robots.txt")).toContain("Disallow: /taller");
   });
 });
