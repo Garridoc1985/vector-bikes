@@ -583,8 +583,17 @@ p {
 .slot:first-child {
   border-left: 0;
 }
-.slot:hover:not([aria-disabled="true"]) {
-  background: var(--hatch);
+/*
+ * El hover no toca el bloque elegido: `.slot:hover:not([aria-disabled])` tiene
+ * más especificidad que `.slot.sel` y le pisaba el fondo dejando el texto
+ * --on-ink sobre --hatch, ilegible en los dos temas. Va además dentro de
+ * `@media (hover: hover)` porque Safari en iPad deja el :hover pegado tras un
+ * toque y el bloque recién elegido quedaba gris hasta tocar otra cosa.
+ */
+@media (hover: hover) {
+  .slot:hover:not([aria-disabled="true"]):not(.sel) {
+    background: var(--hatch);
+  }
 }
 .slot[aria-disabled="true"] {
   cursor: not-allowed;
