@@ -1,5 +1,6 @@
 ---
 import Base from "./Base.astro";
+import "../styles/taller.css";
 import { can, ROLE_LABELS } from "../server/auth/permissions.ts";
 import type { Action, Role } from "../server/auth/permissions.ts";
 
@@ -11,262 +12,74 @@ interface Props {
 }
 
 const { title, description, path, user } = Astro.props;
-const links: { label: string; href: string; action: Action }[] = [
-  { label: "Inicio", href: "/taller", action: "orders.edit" },
-  { label: "Buscar", href: "/taller/buscar", action: "orders.edit" },
-  { label: "Órdenes", href: "/taller/ordenes", action: "orders.edit" },
-  { label: "Recepción", href: "/taller/recepcion/nueva", action: "reception.perform" },
-  { label: "Reservas", href: "/taller/reservas", action: "bookings.manage" },
-  { label: "Clientes", href: "/taller/clientes", action: "customers.manage" },
-  { label: "Catálogo", href: "/taller/catalogo", action: "catalog.view" },
-  { label: "Usuarios", href: "/taller/usuarios", action: "users.manage" },
-  { label: "Agenda", href: "/admin", action: "admin.panel" },
+type Link = { label: string; href: string; action: Action };
+const groups: { label: string; links: Link[] }[] = [
+  {
+    label: "Operación",
+    links: [
+      { label: "Inicio", href: "/taller", action: "orders.edit" },
+      { label: "Buscar", href: "/taller/buscar", action: "orders.edit" },
+      { label: "Órdenes", href: "/taller/ordenes", action: "orders.edit" },
+      { label: "Recepción", href: "/taller/recepcion/nueva", action: "reception.perform" },
+      { label: "Reservas", href: "/taller/reservas", action: "bookings.manage" },
+    ],
+  },
+  {
+    label: "Gestión",
+    links: [
+      { label: "Clientes", href: "/taller/clientes", action: "customers.manage" },
+      { label: "Catálogo", href: "/taller/catalogo", action: "catalog.view" },
+      { label: "Usuarios", href: "/taller/usuarios", action: "users.manage" },
+      { label: "Agenda", href: "/admin", action: "admin.panel" },
+    ],
+  },
 ];
+// El menú se arma en el servidor: un grupo sin enlaces permitidos no se muestra.
+const menu = groups
+  .map((group) => ({ ...group, links: group.links.filter((link) => can(user.role, link.action)) }))
+  .filter((group) => group.links.length > 0);
 ---
 
 <Base title={title} description={description} path={path} chrome="none" noindex>
   <div class="taller">
-    <header class="taller-head wrap">
-      <p class="taller-brand">Vector Bikes · Taller</p>
-      <p class="taller-user">{user.name} · <span class="role">{ROLE_LABELS[user.role]}</span></p>
-      <nav aria-label="Taller">
-        {
-          links.filter((link) => can(user.role, link.action)).map((link) => (
-            <a href={link.href} aria-current={path === link.href ? "page" : undefined}>
-              {link.label}
-            </a>
-          ))
-        }
-        <form method="post" action="/admin/logout">
+    <aside class="taller-aside">
+      <div class="taller-id">
+        <p class="taller-brand">Vector Bikes · Taller</p>
+        <p class="taller-user">{user.name} · <span class="role">{ROLE_LABELS[user.role]}</span></p>
+        <button type="button" class="taller-toggle" popovertarget="taller-menu">Menú</button>
+      </div>
+      <div class="taller-panel" id="taller-menu" popover="auto">
+        <button
+          type="button"
+          class="taller-close"
+          popovertarget="taller-menu"
+          popovertargetaction="hide"
+        >
+          Cerrar
+        </button>
+        <nav aria-label="Taller">
+          {
+            menu.map((group) => (
+              <div class="taller-group">
+                <p class="label">{group.label}</p>
+                <ul>
+                  {group.links.map((link) => (
+                    <li>
+                      <a href={link.href} aria-current={path === link.href ? "page" : undefined}>
+                        {link.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          }
+        </nav>
+        <form method="post" action="/admin/logout" class="taller-exit">
           <button type="submit" class="btn ghost">Salir</button>
         </form>
-      </nav>
-    </header>
-    <section class="taller-content wrap"><slot /></section>
+      </div>
+    </aside>
+    <section class="taller-content"><slot /></section>
   </div>
 </Base>
-
-<style is:global>
-  .taller {
-    min-height: 100vh;
-    background: var(--ground);
-    color: var(--ink);
-  }
-  .taller .taller-head {
-    padding-block: 24px;
-    border-bottom: 1px solid var(--rule);
-  }
-  .taller .taller-brand {
-    font-family: var(--display);
-    font-size: 1rem;
-  }
-  .taller .taller-user {
-    color: var(--ink-2);
-    margin-block: 16px;
-  }
-  .taller .role {
-    font-weight: 600;
-  }
-  .taller nav {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-  }
-  .taller nav form {
-    margin: 0;
-  }
-  .taller a,
-  .taller button,
-  .taller select,
-  .taller textarea,
-  .taller input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"]) {
-    min-height: 48px;
-    min-width: 48px;
-  }
-  .taller a {
-    display: inline-flex;
-    align-items: center;
-    padding: 10px 12px;
-    text-underline-offset: 4px;
-  }
-  .taller nav a {
-    border: 1px solid var(--field-border);
-    border-radius: 2px;
-  }
-  .taller nav a[aria-current="page"] {
-    background: var(--ink);
-    color: var(--on-ink);
-    border-color: var(--ink);
-  }
-  .taller .taller-content {
-    padding-block: 32px;
-  }
-  .taller button,
-  .taller select,
-  .taller textarea,
-  .taller input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"]) {
-    padding: 10px 12px;
-    border: 1px solid var(--field-border);
-    border-radius: 2px;
-    background: var(--surface);
-    color: var(--ink);
-    font: inherit;
-  }
-  .taller .btn {
-    background: var(--ink);
-    color: var(--on-ink);
-    border-color: var(--ink);
-  }
-  .taller .btn.ghost,
-  .taller .btn:hover {
-    background: var(--surface);
-    color: var(--ink);
-  }
-  .taller .fields {
-    align-items: start;
-    gap: 16px;
-  }
-  .taller .field {
-    align-content: start;
-    gap: 8px;
-  }
-  .taller fieldset {
-    border: 1px solid var(--rule);
-    padding: 16px;
-    margin: 0;
-  }
-  .taller legend {
-    font-weight: 600;
-  }
-  .taller .options {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .taller .options label {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 48px;
-    min-width: 48px;
-    padding: 10px 12px;
-    border: 1px solid var(--field-border);
-    border-radius: 2px;
-    background: var(--surface);
-    color: var(--ink);
-    cursor: pointer;
-  }
-  .taller .options input {
-    width: 24px;
-    height: 24px;
-    margin: 0;
-    accent-color: var(--ink);
-  }
-  .taller .options label:has(input:checked) {
-    background: var(--ink);
-    color: var(--on-ink);
-    border-color: var(--ink);
-    accent-color: var(--on-ink);
-  }
-  .taller .status {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 8px;
-    border: 1px solid var(--ink);
-    border-radius: 2px;
-    font-family: var(--mono);
-    font-size: 0.8rem;
-  }
-  .taller .status::before {
-    width: 1.25em;
-    text-align: center;
-  }
-  .taller .status--reservada {
-    border-style: dashed;
-    background: repeating-linear-gradient(135deg, var(--surface) 0 4px, var(--hatch) 4px 5px);
-  }
-  .taller .status--reservada::before {
-    content: "◇";
-  }
-  .taller .status--recibida::before {
-    content: "■";
-  }
-  .taller .status--diagnostico {
-    border-style: dotted;
-  }
-  .taller .status--diagnostico::before {
-    content: "◎";
-  }
-  .taller .status--esperando_aprobacion {
-    border-style: dashed;
-  }
-  .taller .status--esperando_aprobacion::before {
-    content: "?";
-  }
-  .taller .status--esperando_repuesto {
-    border-style: dotted;
-  }
-  .taller .status--esperando_repuesto::before {
-    content: "⌛";
-  }
-  .taller .status--en_reparacion::before {
-    content: "⚒";
-  }
-  .taller .status--control_calidad {
-    border: 3px double var(--ink);
-  }
-  .taller .status--control_calidad::before {
-    content: "△";
-  }
-  .taller .status--lista_para_retirar {
-    border: 3px double var(--ink);
-  }
-  .taller .status--lista_para_retirar::before {
-    content: "✓";
-  }
-  .taller .status--entregada::before {
-    content: "◆";
-  }
-  .taller .status--cancelada {
-    border-style: dashed;
-  }
-  .taller .status--cancelada::before {
-    content: "×";
-  }
-  .taller .status--trabajo_rechazado {
-    border-style: dotted;
-  }
-  .taller .status--trabajo_rechazado::before {
-    content: "⊘";
-  }
-  .taller table.dense {
-    width: 100%;
-    border-collapse: collapse;
-    font-variant-numeric: tabular-nums;
-  }
-  .taller table.dense th,
-  .taller table.dense td {
-    padding: 8px;
-    border-bottom: 1px solid var(--rule);
-    text-align: left;
-    vertical-align: top;
-  }
-  .taller .grid-photos {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr));
-    gap: 8px;
-  }
-  .taller .grid-photos img {
-    width: 100%;
-    aspect-ratio: 4 / 3;
-    object-fit: cover;
-    border: 1px solid var(--rule);
-    border-radius: 2px;
-  }
-  .taller :focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: 3px;
-  }
-</style>
