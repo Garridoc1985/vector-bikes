@@ -1,6 +1,8 @@
 ---
 import { DateTime } from "luxon";
 import { z } from "zod";
+import Card from "../../../components/taller/Card.astro";
+import PageHeader from "../../../components/taller/PageHeader.astro";
 import TallerLayout from "../../../layouts/TallerLayout.astro";
 import { isAllowedOrigin } from "../../../server/api/handlers.ts";
 import { loginRedirect, requireAdmin, SESSION_COOKIE } from "../../../server/auth/admin-auth.ts";
@@ -88,56 +90,91 @@ const history = await bikeTimeline(db, user, id.data);
 ---
 
 <TallerLayout title={`${bike.brand} ${bike.model} — Vector Bikes`} description="Ficha y edición de la bicicleta del cliente." path="/taller/clientes" user={user}>
-  <a href={`/taller/clientes/${customer.id}`}>Volver al cliente: {customer.name}</a>
-  <h1>{bike.brand} {bike.model}</h1>
-  {notice && <p role="status">{notice}</p>}
-  {error && <p role="alert">{error}</p>}
-  <form method="post" action={PATH}>
-    <div class="fields">
-      {fields.map((field) => (
-        <div class="field">
-          <label for={field.key}>{field.label}</label>
-          <input id={field.key} name={field.key} required={field.required} maxlength={field.maxlength} value={values[field.key] ?? ""} aria-invalid={Boolean(fieldErrors[field.key])} aria-describedby={fieldErrors[field.key] ? `${field.key}-error` : undefined} />
-          {fieldErrors[field.key] && <p id={`${field.key}-error`}>{fieldErrors[field.key]}</p>}
-        </div>
-      ))}
-      <fieldset>
-        <legend>Tipo de bicicleta</legend>
-        <div class="options">
-          {BIKE_TYPES.map((type) => (
-            <label for={`type-${type}`}><input id={`type-${type}`} type="radio" name="bikeType" value={type} required checked={values.bikeType === type} aria-invalid={Boolean(fieldErrors.bikeType)} aria-describedby={fieldErrors.bikeType ? "bikeType-error" : undefined} />{BIKE_TYPE_LABELS[type]}</label>
-          ))}
-        </div>
-        {fieldErrors.bikeType && <p id="bikeType-error">{fieldErrors.bikeType}</p>}
-      </fieldset>
-      {numbers.map((field) => (
-        <div class="field">
-          <label for={field.key}>{field.label}</label>
-          <input id={field.key} name={field.key} type="number" min={field.min} max={field.max} step="1" value={values[field.key] ?? ""} aria-invalid={Boolean(fieldErrors[field.key])} aria-describedby={fieldErrors[field.key] ? `${field.key}-error` : undefined} />
-          {fieldErrors[field.key] && <p id={`${field.key}-error`}>{fieldErrors[field.key]}</p>}
-        </div>
-      ))}
-      <div class="field">
-        <label for="notes">Notas</label>
-        <textarea id="notes" name="notes" maxlength="1000" rows="3" aria-invalid={Boolean(fieldErrors.notes)} aria-describedby={fieldErrors.notes ? "notes-error" : undefined}>{values.notes ?? ""}</textarea>
-        {fieldErrors.notes && <p id="notes-error">{fieldErrors.notes}</p>}
-      </div>
-    </div>
-    <button type="submit" class="btn">Guardar bicicleta</button>
-  </form>
-  <section aria-labelledby="history-heading">
-    <h2 id="history-heading">Historial</h2>
-    {history.length ? (
-      <ol>
-        {history.map((event) => (
-          <li>
-            <time datetime={event.at} class="tabular-nums">{DateTime.fromISO(event.at).setZone(TIMEZONE).toFormat("dd-MM-yyyy")}</time>
-            {event.orderId && event.orderNumber && <a href={`/taller/ordenes/${event.orderId}`}>{event.orderNumber}</a>}
-            <p>{event.title}</p>
-            {event.detail && <p>{event.detail}</p>}
-          </li>
+  <div class="stack">
+    <PageHeader title={`${bike.brand} ${bike.model}`}>
+      <a slot="actions" href={`/taller/clientes/${customer.id}`}>Volver al cliente: {customer.name}</a>
+    </PageHeader>
+    {notice && <p role="status">{notice}</p>}
+    {error && <p role="alert">{error}</p>}
+    <Card><form method="post" action={PATH}>
+      <div class="fields">
+        {fields.map((field) => (
+          <div class="field">
+            <label for={field.key}>{field.label}</label>
+            <input id={field.key} name={field.key} required={field.required} maxlength={field.maxlength} value={values[field.key] ?? ""} aria-invalid={Boolean(fieldErrors[field.key])} aria-describedby={fieldErrors[field.key] ? `${field.key}-error` : undefined} />
+            {fieldErrors[field.key] && <p id={`${field.key}-error`}>{fieldErrors[field.key]}</p>}
+          </div>
         ))}
-      </ol>
-    ) : <p>Sin historial todavía.</p>}
-  </section>
+        <fieldset>
+          <legend>Tipo de bicicleta</legend>
+          <div class="options">
+            {BIKE_TYPES.map((type) => (
+              <label for={`type-${type}`}><input id={`type-${type}`} type="radio" name="bikeType" value={type} required checked={values.bikeType === type} aria-invalid={Boolean(fieldErrors.bikeType)} aria-describedby={fieldErrors.bikeType ? "bikeType-error" : undefined} />{BIKE_TYPE_LABELS[type]}</label>
+            ))}
+          </div>
+          {fieldErrors.bikeType && <p id="bikeType-error">{fieldErrors.bikeType}</p>}
+        </fieldset>
+        {numbers.map((field) => (
+          <div class="field">
+            <label for={field.key}>{field.label}</label>
+            <input id={field.key} name={field.key} type="number" min={field.min} max={field.max} step="1" value={values[field.key] ?? ""} aria-invalid={Boolean(fieldErrors[field.key])} aria-describedby={fieldErrors[field.key] ? `${field.key}-error` : undefined} />
+            {fieldErrors[field.key] && <p id={`${field.key}-error`}>{fieldErrors[field.key]}</p>}
+          </div>
+        ))}
+        <div class="field">
+          <label for="notes">Notas</label>
+          <textarea id="notes" name="notes" maxlength="1000" rows="3" aria-invalid={Boolean(fieldErrors.notes)} aria-describedby={fieldErrors.notes ? "notes-error" : undefined}>{values.notes ?? ""}</textarea>
+          {fieldErrors.notes && <p id="notes-error">{fieldErrors.notes}</p>}
+        </div>
+      </div>
+      <button type="submit" class="btn">Guardar bicicleta</button>
+    </form></Card>
+    <section aria-labelledby="history-heading">
+      <h2 id="history-heading">Historial</h2>
+      {history.length ? (
+        <ol>
+          {history.map((event) => (
+            <li>
+              <time datetime={event.at} class="tabular-nums">{DateTime.fromISO(event.at).setZone(TIMEZONE).toFormat("dd-MM-yyyy")}</time>
+              {event.orderId && event.orderNumber && <a href={`/taller/ordenes/${event.orderId}`}>{event.orderNumber}</a>}
+              <p>{event.title}</p>
+              {event.detail && <p>{event.detail}</p>}
+            </li>
+          ))}
+        </ol>
+      ) : <p class="muted">Sin historial todavía.</p>}
+    </section>
+  </div>
 </TallerLayout>
+
+<style is:global>
+  /*
+   * tests/integration/history.test.ts fija el markup literal de este bloque:
+   * corta el HTML por '<section aria-labelledby="history-heading">' y exige
+   * '<ol>' y class="tabular-nums". Por eso no usa <Card> ni clases propias y
+   * el aspecto de tarjeta se aplica por selector de atributo.
+   */
+  .taller section[aria-labelledby="history-heading"] {
+    display: grid;
+    align-content: start;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    background: var(--surface);
+  }
+  .taller section[aria-labelledby="history-heading"] > h2 {
+    font-size: 1.05rem;
+  }
+  .taller section[aria-labelledby="history-heading"] ol {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .taller section[aria-labelledby="history-heading"] time {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+  }
+</style>

@@ -1,6 +1,8 @@
 ---
 import { DateTime } from "luxon";
 import { z } from "zod";
+import Card from "../../../components/taller/Card.astro";
+import PageHeader from "../../../components/taller/PageHeader.astro";
 import TallerLayout from "../../../layouts/TallerLayout.astro";
 import { isAllowedOrigin } from "../../../server/api/handlers.ts";
 import { loginRedirect, requireAdmin, SESSION_COOKIE } from "../../../server/auth/admin-auth.ts";
@@ -173,108 +175,142 @@ const history = await customerTimeline(db, user, id.data);
 ---
 
 <TallerLayout title={`${customer.name} — Vector Bikes`} description="Ficha y edición del cliente del taller." path="/taller/clientes" user={user}>
-  <a href="/taller/clientes">Volver a clientes</a>
-  <h1>{customer.name}</h1>
-  {notice && <p role="status">{notice}</p>}
-  {error && (
-    <div role="alert">
-      <p>{error}</p>
-      {existing && <a href={`/taller/clientes/${existing.id}`}>Usar ficha existente</a>}
-      {canOverridePhone && (
-        <form method="post" action={PATH}>
-          <input type="hidden" name="accion" value="editar" />
-          {valueKeys.map((key) => <input type="hidden" name={key} value={values[key] ?? ""} />)}
-          <input type="hidden" name="allow_phone_duplicate" value="1" />
-          <button type="submit" class="btn">Crear de todas formas</button>
-        </form>
-      )}
-    </div>
-  )}
-  <form method="post" action={PATH}>
-    <input type="hidden" name="accion" value="editar" />
-    <div class="fields">
-      {fields.map((field) => (
-        <div class="field">
-          <label for={field.key}>{field.label}</label>
-          <input id={field.key} name={field.key} type={field.type} required={field.required} autocomplete={field.autocomplete} maxlength={field.maxlength} value={values[field.key] ?? ""} aria-invalid={Boolean(fieldErrors[field.key])} aria-describedby={fieldErrors[field.key] ? `${field.key}-error` : undefined} />
-          {fieldErrors[field.key] && <p id={`${field.key}-error`}>{fieldErrors[field.key]}</p>}
-        </div>
-      ))}
-      <fieldset>
-        <legend>Canal</legend>
-        <div class="options">
-          {DISCOVERY_CHANNELS.map((channel) => (
-            <label for={`channel-${channel}`}><input id={`channel-${channel}`} type="radio" name="discoveryChannel" value={channel} checked={values.discoveryChannel === channel} aria-invalid={Boolean(fieldErrors.discoveryChannel)} aria-describedby={fieldErrors.discoveryChannel ? "discoveryChannel-error" : undefined} />{DISCOVERY_CHANNEL_LABELS[channel]}</label>
-          ))}
-          <label for="channel-none"><input id="channel-none" type="radio" name="discoveryChannel" value="" checked={!values.discoveryChannel} aria-invalid={Boolean(fieldErrors.discoveryChannel)} aria-describedby={fieldErrors.discoveryChannel ? "discoveryChannel-error" : undefined} />Sin especificar</label>
-        </div>
-        {fieldErrors.discoveryChannel && <p id="discoveryChannel-error">{fieldErrors.discoveryChannel}</p>}
-      </fieldset>
-      <div class="field">
-        <label for="notes">Notas</label>
-        <textarea id="notes" name="notes" maxlength="2000" rows="3" aria-invalid={Boolean(fieldErrors.notes)} aria-describedby={fieldErrors.notes ? "notes-error" : undefined}>{values.notes ?? ""}</textarea>
-        {fieldErrors.notes && <p id="notes-error">{fieldErrors.notes}</p>}
+  <div class="stack">
+    <PageHeader title={customer.name}>
+      <a slot="actions" href="/taller/clientes">Volver a clientes</a>
+    </PageHeader>
+    {notice && <p role="status">{notice}</p>}
+    {error && (
+      <div role="alert">
+        <p>{error}</p>
+        {existing && <a href={`/taller/clientes/${existing.id}`}>Usar ficha existente</a>}
+        {canOverridePhone && (
+          <form method="post" action={PATH}>
+            <input type="hidden" name="accion" value="editar" />
+            {valueKeys.map((key) => <input type="hidden" name={key} value={values[key] ?? ""} />)}
+            <input type="hidden" name="allow_phone_duplicate" value="1" />
+            <button type="submit" class="btn">Crear de todas formas</button>
+          </form>
+        )}
       </div>
-    </div>
-    <button type="submit" class="btn">Guardar cliente</button>
-  </form>
-  <section aria-labelledby="bikes-heading">
-    <h2 id="bikes-heading">Bicicletas</h2>
-    {customerBikes.length ? (
-      <ul>
-        {customerBikes.map((bike) => <li><a href={`/taller/bicicletas/${bike.id}`}>{bike.brand} {bike.model}</a></li>)}
-      </ul>
-    ) : <p>Este cliente todavía no tiene bicicletas registradas.</p>}
-    <h3>Agregar bicicleta</h3>
-    {bikeError && <p role="alert">{bikeError}</p>}
-    <form method="post" action={PATH}>
-      <input type="hidden" name="accion" value="bicicleta" />
+    )}
+    <Card><form method="post" action={PATH}>
+      <input type="hidden" name="accion" value="editar" />
       <div class="fields">
-        {bikeFields.map((field) => (
+        {fields.map((field) => (
           <div class="field">
-            <label for={`bike-${field.key}`}>{field.label}</label>
-            <input id={`bike-${field.key}`} name={field.key} required={field.required} maxlength={field.maxlength} value={bikeValues[field.key] ?? ""} aria-invalid={Boolean(bikeErrors[field.key])} aria-describedby={bikeErrors[field.key] ? `bike-${field.key}-error` : undefined} />
-            {bikeErrors[field.key] && <p id={`bike-${field.key}-error`}>{bikeErrors[field.key]}</p>}
+            <label for={field.key}>{field.label}</label>
+            <input id={field.key} name={field.key} type={field.type} required={field.required} autocomplete={field.autocomplete} maxlength={field.maxlength} value={values[field.key] ?? ""} aria-invalid={Boolean(fieldErrors[field.key])} aria-describedby={fieldErrors[field.key] ? `${field.key}-error` : undefined} />
+            {fieldErrors[field.key] && <p id={`${field.key}-error`}>{fieldErrors[field.key]}</p>}
           </div>
         ))}
         <fieldset>
-          <legend>Tipo de bicicleta</legend>
+          <legend>Canal</legend>
           <div class="options">
-            {BIKE_TYPES.map((type) => (
-              <label for={`bike-type-${type}`}><input id={`bike-type-${type}`} type="radio" name="bikeType" value={type} required checked={bikeValues.bikeType === type} aria-invalid={Boolean(bikeErrors.bikeType)} aria-describedby={bikeErrors.bikeType ? "bike-type-error" : undefined} />{BIKE_TYPE_LABELS[type]}</label>
+            {DISCOVERY_CHANNELS.map((channel) => (
+              <label for={`channel-${channel}`}><input id={`channel-${channel}`} type="radio" name="discoveryChannel" value={channel} checked={values.discoveryChannel === channel} aria-invalid={Boolean(fieldErrors.discoveryChannel)} aria-describedby={fieldErrors.discoveryChannel ? "discoveryChannel-error" : undefined} />{DISCOVERY_CHANNEL_LABELS[channel]}</label>
             ))}
+            <label for="channel-none"><input id="channel-none" type="radio" name="discoveryChannel" value="" checked={!values.discoveryChannel} aria-invalid={Boolean(fieldErrors.discoveryChannel)} aria-describedby={fieldErrors.discoveryChannel ? "discoveryChannel-error" : undefined} />Sin especificar</label>
           </div>
-          {bikeErrors.bikeType && <p id="bike-type-error">{bikeErrors.bikeType}</p>}
+          {fieldErrors.discoveryChannel && <p id="discoveryChannel-error">{fieldErrors.discoveryChannel}</p>}
         </fieldset>
-        {bikeNumbers.map((field) => (
-          <div class="field">
-            <label for={`bike-${field.key}`}>{field.label}</label>
-            <input id={`bike-${field.key}`} name={field.key} type="number" min={field.min} max={field.max} step="1" value={bikeValues[field.key] ?? ""} aria-invalid={Boolean(bikeErrors[field.key])} aria-describedby={bikeErrors[field.key] ? `bike-${field.key}-error` : undefined} />
-            {bikeErrors[field.key] && <p id={`bike-${field.key}-error`}>{bikeErrors[field.key]}</p>}
-          </div>
-        ))}
         <div class="field">
-          <label for="bike-notes">Notas</label>
-          <textarea id="bike-notes" name="notes" maxlength="1000" rows="3" aria-invalid={Boolean(bikeErrors.notes)} aria-describedby={bikeErrors.notes ? "bike-notes-error" : undefined}>{bikeValues.notes ?? ""}</textarea>
-          {bikeErrors.notes && <p id="bike-notes-error">{bikeErrors.notes}</p>}
+          <label for="notes">Notas</label>
+          <textarea id="notes" name="notes" maxlength="2000" rows="3" aria-invalid={Boolean(fieldErrors.notes)} aria-describedby={fieldErrors.notes ? "notes-error" : undefined}>{values.notes ?? ""}</textarea>
+          {fieldErrors.notes && <p id="notes-error">{fieldErrors.notes}</p>}
         </div>
       </div>
-      <button type="submit" class="btn">Agregar bicicleta</button>
-    </form>
-  </section>
-  <section aria-labelledby="history-heading">
-    <h2 id="history-heading">Historial</h2>
-    {history.length ? (
-      <ol>
-        {history.map((event) => (
-          <li>
-            <time datetime={event.at} class="tabular-nums">{DateTime.fromISO(event.at).setZone(TIMEZONE).toFormat("dd-MM-yyyy")}</time>
-            {event.orderId && event.orderNumber && <a href={`/taller/ordenes/${event.orderId}`}>{event.orderNumber}</a>}
-            <p>{event.title}</p>
-            {event.detail && <p>{event.detail}</p>}
-          </li>
-        ))}
-      </ol>
-    ) : <p>Sin historial todavía.</p>}
-  </section>
+      <button type="submit" class="btn">Guardar cliente</button>
+    </form></Card>
+    <Card id="bikes-heading" title="Bicicletas">
+      {customerBikes.length ? (
+        <ul>
+          {customerBikes.map((bike) => <li><a href={`/taller/bicicletas/${bike.id}`}>{bike.brand} {bike.model}</a></li>)}
+        </ul>
+      ) : <p class="muted">Este cliente todavía no tiene bicicletas registradas.</p>}
+      <h3>Agregar bicicleta</h3>
+      {bikeError && <p role="alert">{bikeError}</p>}
+      <form method="post" action={PATH}>
+        <input type="hidden" name="accion" value="bicicleta" />
+        <div class="fields">
+          {bikeFields.map((field) => (
+            <div class="field">
+              <label for={`bike-${field.key}`}>{field.label}</label>
+              <input id={`bike-${field.key}`} name={field.key} required={field.required} maxlength={field.maxlength} value={bikeValues[field.key] ?? ""} aria-invalid={Boolean(bikeErrors[field.key])} aria-describedby={bikeErrors[field.key] ? `bike-${field.key}-error` : undefined} />
+              {bikeErrors[field.key] && <p id={`bike-${field.key}-error`}>{bikeErrors[field.key]}</p>}
+            </div>
+          ))}
+          <fieldset>
+            <legend>Tipo de bicicleta</legend>
+            <div class="options">
+              {BIKE_TYPES.map((type) => (
+                <label for={`bike-type-${type}`}><input id={`bike-type-${type}`} type="radio" name="bikeType" value={type} required checked={bikeValues.bikeType === type} aria-invalid={Boolean(bikeErrors.bikeType)} aria-describedby={bikeErrors.bikeType ? "bike-type-error" : undefined} />{BIKE_TYPE_LABELS[type]}</label>
+              ))}
+            </div>
+            {bikeErrors.bikeType && <p id="bike-type-error">{bikeErrors.bikeType}</p>}
+          </fieldset>
+          {bikeNumbers.map((field) => (
+            <div class="field">
+              <label for={`bike-${field.key}`}>{field.label}</label>
+              <input id={`bike-${field.key}`} name={field.key} type="number" min={field.min} max={field.max} step="1" value={bikeValues[field.key] ?? ""} aria-invalid={Boolean(bikeErrors[field.key])} aria-describedby={bikeErrors[field.key] ? `bike-${field.key}-error` : undefined} />
+              {bikeErrors[field.key] && <p id={`bike-${field.key}-error`}>{bikeErrors[field.key]}</p>}
+            </div>
+          ))}
+          <div class="field">
+            <label for="bike-notes">Notas</label>
+            <textarea id="bike-notes" name="notes" maxlength="1000" rows="3" aria-invalid={Boolean(bikeErrors.notes)} aria-describedby={bikeErrors.notes ? "bike-notes-error" : undefined}>{bikeValues.notes ?? ""}</textarea>
+            {bikeErrors.notes && <p id="bike-notes-error">{bikeErrors.notes}</p>}
+          </div>
+        </div>
+        <button type="submit" class="btn">Agregar bicicleta</button>
+      </form>
+    </Card>
+    <section aria-labelledby="history-heading">
+      <h2 id="history-heading">Historial</h2>
+      {history.length ? (
+        <ol>
+          {history.map((event) => (
+            <li>
+              <time datetime={event.at} class="tabular-nums">{DateTime.fromISO(event.at).setZone(TIMEZONE).toFormat("dd-MM-yyyy")}</time>
+              {event.orderId && event.orderNumber && <a href={`/taller/ordenes/${event.orderId}`}>{event.orderNumber}</a>}
+              <p>{event.title}</p>
+              {event.detail && <p>{event.detail}</p>}
+            </li>
+          ))}
+        </ol>
+      ) : <p class="muted">Sin historial todavía.</p>}
+    </section>
+  </div>
 </TallerLayout>
+
+<style is:global>
+  /*
+   * tests/integration/history.test.ts fija el markup literal de este bloque:
+   * corta el HTML por '<section aria-labelledby="history-heading">' y exige
+   * '<ol>' y class="tabular-nums". Por eso no usa <Card> ni clases propias y
+   * el aspecto de tarjeta se aplica por selector de atributo.
+   */
+  .taller section[aria-labelledby="history-heading"] {
+    display: grid;
+    align-content: start;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    background: var(--surface);
+  }
+  .taller section[aria-labelledby="history-heading"] > h2 {
+    font-size: 1.05rem;
+  }
+  .taller section[aria-labelledby="history-heading"] ol {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .taller section[aria-labelledby="history-heading"] time {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+  }
+</style>

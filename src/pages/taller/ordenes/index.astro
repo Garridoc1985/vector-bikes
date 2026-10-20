@@ -1,4 +1,6 @@
 ---
+import Card from "../../../components/taller/Card.astro";
+import PageHeader from "../../../components/taller/PageHeader.astro";
 import TallerLayout from "../../../layouts/TallerLayout.astro";
 import { isAllowedOrigin } from "../../../server/api/handlers.ts";
 import { formatClp } from "../../../server/email/templates.ts";
@@ -27,22 +29,24 @@ const orders = await listOrders(db, user, scope);
 ---
 
 <TallerLayout title="Órdenes — Vector Bikes" description="Órdenes abiertas del taller." path={PATH} user={user}>
-  <h1>Órdenes abiertas</h1>
-  <div style="overflow-x:auto">
-    <table class="dense">
-      <caption>Órdenes abiertas de tu sucursal</caption>
-      <thead><tr><th scope="col">Orden</th><th scope="col">Estado</th><th scope="col">Cliente</th><th scope="col">Bicicleta</th><th scope="col">Entrega estimada</th><th scope="col">Total</th></tr></thead>
-      <tbody>
-        {orders.map(({ order, customerName, bikeBrand, bikeModel }) => (
-          <tr>
-            <th scope="row"><a href={`${PATH}/${order.id}`}>{formatOrderNumber(order.number)}</a></th>
-            <td><span class={`status status--${order.status}`}>{STATUS_LABELS[order.status as OrderStatus]}</span></td>
-            <td>{customerName}</td><td>{bikeBrand} {bikeModel}</td>
-            <td>{order.estimatedDeliveryDate ?? "Sin fecha"}</td><td>{formatClp(order.totalClp)}</td>
-          </tr>
-        ))}
-        {orders.length === 0 && <tr><td colspan="6">No hay órdenes abiertas.</td></tr>}
-      </tbody>
-    </table>
+  <div class="stack">
+    <PageHeader title="Órdenes abiertas" />
+    <Card><div class="scroll-x">
+      <table class="dense">
+        <caption>Órdenes abiertas de tu sucursal</caption>
+        <thead><tr><th scope="col">Orden</th><th scope="col">Estado</th><th scope="col">Cliente</th><th scope="col">Bicicleta</th><th scope="col">Entrega estimada</th><th scope="col">Total</th></tr></thead>
+        <tbody>
+          {orders.map(({ order, customerName, bikeBrand, bikeModel }) => (
+            <tr>
+              <th scope="row"><a href={`${PATH}/${order.id}`}>{formatOrderNumber(order.number)}</a></th>
+              <td><span class={`status status--${order.status}`}>{STATUS_LABELS[order.status as OrderStatus]}</span></td>
+              <td>{customerName}</td><td>{bikeBrand} {bikeModel}</td>
+              <td>{order.estimatedDeliveryDate ?? "Sin fecha"}</td><td class="mono">{formatClp(order.totalClp)}</td>
+            </tr>
+          ))}
+          {orders.length === 0 && <tr><td colspan="6" class="muted">No hay órdenes abiertas.</td></tr>}
+        </tbody>
+      </table>
+    </div></Card>
   </div>
 </TallerLayout>

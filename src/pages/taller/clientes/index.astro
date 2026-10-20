@@ -1,4 +1,6 @@
 ---
+import Card from "../../../components/taller/Card.astro";
+import PageHeader from "../../../components/taller/PageHeader.astro";
 import TallerLayout from "../../../layouts/TallerLayout.astro";
 import { loginRedirect, requireAdmin, SESSION_COOKIE } from "../../../server/auth/admin-auth.ts";
 import { can, forbiddenResponse } from "../../../server/auth/permissions.ts";
@@ -24,27 +26,30 @@ const customers = await listCustomers(db, user);
 ---
 
 <TallerLayout title="Clientes — Vector Bikes" description="Clientes recientes del taller." path={PATH} user={user}>
-  <h1>Clientes</h1>
-  <p><a class="btn" href={`${PATH}/nuevo`}>Nuevo cliente</a></p>
-  <form method="get" action="/taller/buscar">
-    <div class="fields">
-      <div class="field">
-        <label for="customer-search">Buscar cliente</label>
-        <input id="customer-search" name="q" type="search" />
+  <div class="stack">
+    <PageHeader title="Clientes">
+      <a slot="actions" class="btn" href={`${PATH}/nuevo`}>Nuevo cliente</a>
+    </PageHeader>
+    <Card><form method="get" action="/taller/buscar">
+      <div class="fields">
+        <div class="field">
+          <label for="customer-search">Buscar cliente</label>
+          <input id="customer-search" name="q" type="search" />
+        </div>
       </div>
-    </div>
-    <button type="submit" class="btn">Buscar cliente</button>
-  </form>
-  <div style="overflow-x:auto">
-    <table class="dense">
-      <caption>Clientes recientes de tu sucursal</caption>
-      <thead><tr><th scope="col">Nombre</th></tr></thead>
-      <tbody>
-        {customers.map((customer) => (
-          <tr><th scope="row"><a href={`${PATH}/${customer.id}`}>{customer.name}</a></th></tr>
-        ))}
-        {customers.length === 0 && <tr><td>Aún no hay clientes registrados.</td></tr>}
-      </tbody>
-    </table>
+      <button type="submit" class="btn">Buscar cliente</button>
+    </form></Card>
+    <Card><div class="scroll-x">
+      <table class="dense">
+        <caption>Clientes recientes de tu sucursal</caption>
+        <thead><tr><th scope="col">Nombre</th></tr></thead>
+        <tbody>
+          {customers.map((customer) => (
+            <tr><th scope="row"><a href={`${PATH}/${customer.id}`}>{customer.name}</a></th></tr>
+          ))}
+          {customers.length === 0 && <tr><td class="muted">Aún no hay clientes registrados.</td></tr>}
+        </tbody>
+      </table>
+    </div></Card>
   </div>
 </TallerLayout>

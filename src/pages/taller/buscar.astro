@@ -1,4 +1,6 @@
 ---
+import Card from "../../components/taller/Card.astro";
+import PageHeader from "../../components/taller/PageHeader.astro";
 import TallerLayout from "../../layouts/TallerLayout.astro";
 import { loginRedirect, requireAdmin, SESSION_COOKIE } from "../../server/auth/admin-auth.ts";
 import { can, forbiddenResponse } from "../../server/auth/permissions.ts";
@@ -30,42 +32,44 @@ const canManageCustomers = can(user.role, "customers.manage");
 ---
 
 <TallerLayout title="Buscar — Vector Bikes" description="Busca clientes y órdenes de tu sucursal." path={PATH} user={user}>
-  <h1>Buscar</h1>
-  <form method="get" action={PATH}>
-    <div class="fields">
-      <div class="field">
-        <label for="workshop-search">Nombre, teléfono, RUT o número de orden</label>
-        <input id="workshop-search" name="q" type="search" maxlength="80" value={q} />
+  <div class="stack">
+    <PageHeader title="Buscar" />
+    <Card><form method="get" action={PATH}>
+      <div class="fields">
+        <div class="field">
+          <label for="workshop-search">Nombre, teléfono, RUT o número de orden</label>
+          <input id="workshop-search" name="q" type="search" maxlength="80" value={q} />
+        </div>
       </div>
-    </div>
-    <button type="submit" class="btn">Buscar</button>
-  </form>
-  {results.orders.length > 0 && <div style="overflow-x:auto">
-    <table class="dense">
-      <caption>Órdenes</caption>
-      <thead><tr><th scope="col">Número</th><th scope="col">Estado</th></tr></thead>
-      <tbody>{results.orders.map((order) => (
-        <tr>
-          <th scope="row"><a href={`/taller/ordenes/${order.id}`}>{order.label}</a></th>
-          <td><span class={`status status--${order.status}`}>{STATUS_LABELS[order.status as OrderStatus]}</span></td>
-        </tr>
-      ))}</tbody>
-    </table>
-  </div>}
-  <div style="overflow-x:auto">
-    <table class="dense">
-      <caption>Clientes de tu sucursal</caption>
-      <thead><tr><th scope="col">Nombre</th></tr></thead>
-      <tbody>
-        {results.customers.map((customer) => (
+      <button type="submit" class="btn">Buscar</button>
+    </form></Card>
+    {results.orders.length > 0 && <Card><div class="scroll-x">
+      <table class="dense">
+        <caption>Órdenes</caption>
+        <thead><tr><th scope="col">Número</th><th scope="col">Estado</th></tr></thead>
+        <tbody>{results.orders.map((order) => (
           <tr>
-            <th scope="row">
-              <a href={canManageCustomers ? `/taller/clientes/${customer.id}` : `/taller/recepcion/nueva?cliente=${customer.id}`}>{customer.name}</a>
-            </th>
+            <th scope="row"><a href={`/taller/ordenes/${order.id}`}>{order.label}</a></th>
+            <td><span class={`status status--${order.status}`}>{STATUS_LABELS[order.status as OrderStatus]}</span></td>
           </tr>
-        ))}
-        {results.customers.length === 0 && results.orders.length === 0 && <tr><td>Sin resultados.</td></tr>}
-      </tbody>
-    </table>
+        ))}</tbody>
+      </table>
+    </div></Card>}
+    <Card><div class="scroll-x">
+      <table class="dense">
+        <caption>Clientes de tu sucursal</caption>
+        <thead><tr><th scope="col">Nombre</th></tr></thead>
+        <tbody>
+          {results.customers.map((customer) => (
+            <tr>
+              <th scope="row">
+                <a href={canManageCustomers ? `/taller/clientes/${customer.id}` : `/taller/recepcion/nueva?cliente=${customer.id}`}>{customer.name}</a>
+              </th>
+            </tr>
+          ))}
+          {results.customers.length === 0 && results.orders.length === 0 && <tr><td class="muted">Sin resultados.</td></tr>}
+        </tbody>
+      </table>
+    </div></Card>
   </div>
 </TallerLayout>

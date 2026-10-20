@@ -1,5 +1,7 @@
 ---
 import { z } from "zod";
+import Card from "../../../components/taller/Card.astro";
+import PageHeader from "../../../components/taller/PageHeader.astro";
 import TallerLayout from "../../../layouts/TallerLayout.astro";
 import { isAllowedOrigin } from "../../../server/api/handlers.ts";
 import { loginRedirect, requireAdmin, SESSION_COOKIE } from "../../../server/auth/admin-auth.ts";
@@ -99,46 +101,49 @@ if (Astro.request.method === "POST") {
 ---
 
 <TallerLayout title="Nuevo cliente — Vector Bikes" description="Crear una ficha de cliente del taller." path="/taller/clientes" user={user}>
-  <a href="/taller/clientes">Volver a clientes</a>
-  <h1>Nuevo cliente</h1>
-  {error && (
-    <div role="alert">
-      <p>{error}</p>
-      {existing && <a href={`/taller/clientes/${existing.id}`}>Usar ficha existente</a>}
-      {canOverridePhone && (
-        <form method="post" action={PATH}>
-          {valueKeys.map((key) => <input type="hidden" name={key} value={values[key] ?? ""} />)}
-          <input type="hidden" name="allow_phone_duplicate" value="1" />
-          <button type="submit" class="btn">Crear de todas formas</button>
-        </form>
-      )}
-    </div>
-  )}
-  <form method="post" action={PATH}>
-    <div class="fields">
-      {fields.map((field) => (
-        <div class="field">
-          <label for={field.key}>{field.label}</label>
-          <input id={field.key} name={field.key} type={field.type} required={field.required} autocomplete={field.autocomplete} maxlength={field.maxlength} value={values[field.key] ?? ""} aria-invalid={Boolean(fieldErrors[field.key])} aria-describedby={fieldErrors[field.key] ? `${field.key}-error` : undefined} />
-          {fieldErrors[field.key] && <p id={`${field.key}-error`}>{fieldErrors[field.key]}</p>}
-        </div>
-      ))}
-      <fieldset>
-        <legend>Canal</legend>
-        <div class="options">
-          {DISCOVERY_CHANNELS.map((channel) => (
-            <label for={`channel-${channel}`}><input id={`channel-${channel}`} type="radio" name="discoveryChannel" value={channel} checked={values.discoveryChannel === channel} aria-invalid={Boolean(fieldErrors.discoveryChannel)} aria-describedby={fieldErrors.discoveryChannel ? "discoveryChannel-error" : undefined} />{DISCOVERY_CHANNEL_LABELS[channel]}</label>
-          ))}
-          <label for="channel-none"><input id="channel-none" type="radio" name="discoveryChannel" value="" checked={!values.discoveryChannel} aria-invalid={Boolean(fieldErrors.discoveryChannel)} aria-describedby={fieldErrors.discoveryChannel ? "discoveryChannel-error" : undefined} />Sin especificar</label>
-        </div>
-        {fieldErrors.discoveryChannel && <p id="discoveryChannel-error">{fieldErrors.discoveryChannel}</p>}
-      </fieldset>
-      <div class="field">
-        <label for="notes">Notas</label>
-        <textarea id="notes" name="notes" maxlength="2000" rows="3" aria-invalid={Boolean(fieldErrors.notes)} aria-describedby={fieldErrors.notes ? "notes-error" : undefined}>{values.notes ?? ""}</textarea>
-        {fieldErrors.notes && <p id="notes-error">{fieldErrors.notes}</p>}
+  <div class="stack">
+    <PageHeader title="Nuevo cliente">
+      <a slot="actions" href="/taller/clientes">Volver a clientes</a>
+    </PageHeader>
+    {error && (
+      <div role="alert">
+        <p>{error}</p>
+        {existing && <a href={`/taller/clientes/${existing.id}`}>Usar ficha existente</a>}
+        {canOverridePhone && (
+          <form method="post" action={PATH}>
+            {valueKeys.map((key) => <input type="hidden" name={key} value={values[key] ?? ""} />)}
+            <input type="hidden" name="allow_phone_duplicate" value="1" />
+            <button type="submit" class="btn">Crear de todas formas</button>
+          </form>
+        )}
       </div>
-    </div>
-    <button type="submit" class="btn">Crear cliente</button>
-  </form>
+    )}
+    <Card><form method="post" action={PATH}>
+      <div class="fields">
+        {fields.map((field) => (
+          <div class="field">
+            <label for={field.key}>{field.label}</label>
+            <input id={field.key} name={field.key} type={field.type} required={field.required} autocomplete={field.autocomplete} maxlength={field.maxlength} value={values[field.key] ?? ""} aria-invalid={Boolean(fieldErrors[field.key])} aria-describedby={fieldErrors[field.key] ? `${field.key}-error` : undefined} />
+            {fieldErrors[field.key] && <p id={`${field.key}-error`}>{fieldErrors[field.key]}</p>}
+          </div>
+        ))}
+        <fieldset>
+          <legend>Canal</legend>
+          <div class="options">
+            {DISCOVERY_CHANNELS.map((channel) => (
+              <label for={`channel-${channel}`}><input id={`channel-${channel}`} type="radio" name="discoveryChannel" value={channel} checked={values.discoveryChannel === channel} aria-invalid={Boolean(fieldErrors.discoveryChannel)} aria-describedby={fieldErrors.discoveryChannel ? "discoveryChannel-error" : undefined} />{DISCOVERY_CHANNEL_LABELS[channel]}</label>
+            ))}
+            <label for="channel-none"><input id="channel-none" type="radio" name="discoveryChannel" value="" checked={!values.discoveryChannel} aria-invalid={Boolean(fieldErrors.discoveryChannel)} aria-describedby={fieldErrors.discoveryChannel ? "discoveryChannel-error" : undefined} />Sin especificar</label>
+          </div>
+          {fieldErrors.discoveryChannel && <p id="discoveryChannel-error">{fieldErrors.discoveryChannel}</p>}
+        </fieldset>
+        <div class="field">
+          <label for="notes">Notas</label>
+          <textarea id="notes" name="notes" maxlength="2000" rows="3" aria-invalid={Boolean(fieldErrors.notes)} aria-describedby={fieldErrors.notes ? "notes-error" : undefined}>{values.notes ?? ""}</textarea>
+          {fieldErrors.notes && <p id="notes-error">{fieldErrors.notes}</p>}
+        </div>
+      </div>
+      <button type="submit" class="btn">Crear cliente</button>
+    </form></Card>
+  </div>
 </TallerLayout>
