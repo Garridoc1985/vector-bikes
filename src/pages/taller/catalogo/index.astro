@@ -1,4 +1,6 @@
 ---
+import Card from "../../../components/taller/Card.astro";
+import PageHeader from "../../../components/taller/PageHeader.astro";
 import TallerLayout from "../../../layouts/TallerLayout.astro";
 import { isAllowedOrigin } from "../../../server/api/handlers.ts";
 import { loginRedirect, requireAdmin, SESSION_COOKIE } from "../../../server/auth/admin-auth.ts";
@@ -74,51 +76,52 @@ const notice = Astro.url.searchParams.get("hecho") === "crear" ? "Servicio cread
 ---
 
 <TallerLayout title="Catálogo — Vector Bikes" description="Servicios y precios del taller por tipo de bicicleta." path={PATH} user={user}>
-  <h1>Catálogo de servicios</h1>
-  {notice && <p role="status">{notice}</p>}
-  {error && <p role="alert">{error}</p>}
-  <div style="overflow-x:auto">
-    <table class="dense">
-      <caption>Servicios y precios en pesos chilenos de tu sucursal</caption>
-      <thead><tr><th scope="col">Servicio</th><th scope="col">Duración</th><th scope="col">Estado</th>{BIKE_TYPES.map((type) => <th scope="col">{BIKE_TYPE_LABELS[type]}</th>)}</tr></thead>
-      <tbody>
-        {catalog.map((service) => (
-          <tr>
-            <th scope="row"><a href={`${PATH}/${service.id}`}>{service.name}</a></th>
-            <td>{service.estimatedMinutes} min</td>
-            <td>{service.isActive ? "Activo" : "Inactivo"}</td>
-            {BIKE_TYPES.map((type) => <td>{service.prices[type] === undefined ? "Sin precio" : formatClp(service.prices[type])}</td>)}
-          </tr>
-        ))}
-        {catalog.length === 0 && <tr><td colspan="8">Aún no hay servicios en el catálogo.</td></tr>}
-      </tbody>
-    </table>
-  </div>
-  {canEdit && (
-    <section aria-labelledby="new-service">
-      <h2 id="new-service">Nuevo servicio</h2>
-      <form method="post" action={PATH}>
-        <div class="fields">
-          <div class="field">
-            <label for="name">Nombre</label>
-            <input id="name" name="name" required minlength="2" maxlength="80" value={values.name ?? ""} aria-invalid={Boolean(fieldErrors.name)} aria-describedby={fieldErrors.name ? "name-error" : undefined} />
-            {fieldErrors.name && <p id="name-error">{fieldErrors.name}</p>}
-          </div>
-          <div class="field">
-            <label for="estimatedMinutes">Duración estimada (minutos)</label>
-            <input id="estimatedMinutes" name="estimatedMinutes" type="number" required min="5" max="1440" step="1" value={values.estimatedMinutes} aria-invalid={Boolean(fieldErrors.estimatedMinutes)} aria-describedby={fieldErrors.estimatedMinutes ? "estimatedMinutes-error" : undefined} />
-            {fieldErrors.estimatedMinutes && <p id="estimatedMinutes-error">{fieldErrors.estimatedMinutes}</p>}
-          </div>
-          {textFields.map((field) => (
-            <div class="field">
-              <label for={field.key}>{field.label}</label>
-              <textarea id={field.key} name={field.key} maxlength="1000" rows="3" aria-invalid={Boolean(fieldErrors[field.key])} aria-describedby={fieldErrors[field.key] ? `${field.key}-error` : undefined}>{values[field.key] ?? ""}</textarea>
-              {fieldErrors[field.key] && <p id={`${field.key}-error`}>{fieldErrors[field.key]}</p>}
-            </div>
+  <div class="stack">
+    <PageHeader title="Catálogo de servicios" />
+    {notice && <p role="status">{notice}</p>}
+    {error && <p role="alert">{error}</p>}
+    <Card><div class="scroll-x">
+      <table class="dense">
+        <caption>Servicios y precios en pesos chilenos de tu sucursal</caption>
+        <thead><tr><th scope="col">Servicio</th><th scope="col">Duración</th><th scope="col">Estado</th>{BIKE_TYPES.map((type) => <th scope="col">{BIKE_TYPE_LABELS[type]}</th>)}</tr></thead>
+        <tbody>
+          {catalog.map((service) => (
+            <tr>
+              <th scope="row"><a href={`${PATH}/${service.id}`}>{service.name}</a></th>
+              <td>{service.estimatedMinutes} min</td>
+              <td>{service.isActive ? "Activo" : "Inactivo"}</td>
+              {BIKE_TYPES.map((type) => <td class={service.prices[type] === undefined ? "muted" : "mono"}>{service.prices[type] === undefined ? "Sin precio" : formatClp(service.prices[type])}</td>)}
+            </tr>
           ))}
-        </div>
-        <button type="submit" class="btn">Crear servicio</button>
-      </form>
-    </section>
-  )}
+          {catalog.length === 0 && <tr><td class="muted" colspan="8">Aún no hay servicios en el catálogo.</td></tr>}
+        </tbody>
+      </table>
+    </div></Card>
+    {canEdit && (
+      <Card id="new-service" title="Nuevo servicio">
+        <form method="post" action={PATH}>
+          <div class="fields">
+            <div class="field">
+              <label for="name">Nombre</label>
+              <input id="name" name="name" required minlength="2" maxlength="80" value={values.name ?? ""} aria-invalid={Boolean(fieldErrors.name)} aria-describedby={fieldErrors.name ? "name-error" : undefined} />
+              {fieldErrors.name && <p id="name-error">{fieldErrors.name}</p>}
+            </div>
+            <div class="field">
+              <label for="estimatedMinutes">Duración estimada (minutos)</label>
+              <input id="estimatedMinutes" name="estimatedMinutes" type="number" required min="5" max="1440" step="1" value={values.estimatedMinutes} aria-invalid={Boolean(fieldErrors.estimatedMinutes)} aria-describedby={fieldErrors.estimatedMinutes ? "estimatedMinutes-error" : undefined} />
+              {fieldErrors.estimatedMinutes && <p id="estimatedMinutes-error">{fieldErrors.estimatedMinutes}</p>}
+            </div>
+            {textFields.map((field) => (
+              <div class="field">
+                <label for={field.key}>{field.label}</label>
+                <textarea id={field.key} name={field.key} maxlength="1000" rows="3" aria-invalid={Boolean(fieldErrors[field.key])} aria-describedby={fieldErrors[field.key] ? `${field.key}-error` : undefined}>{values[field.key] ?? ""}</textarea>
+                {fieldErrors[field.key] && <p id={`${field.key}-error`}>{fieldErrors[field.key]}</p>}
+              </div>
+            ))}
+          </div>
+          <button type="submit" class="btn">Crear servicio</button>
+        </form>
+      </Card>
+    )}
+  </div>
 </TallerLayout>

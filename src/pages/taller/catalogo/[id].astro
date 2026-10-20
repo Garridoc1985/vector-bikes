@@ -1,5 +1,7 @@
 ---
 import { z } from "zod";
+import Card from "../../../components/taller/Card.astro";
+import PageHeader from "../../../components/taller/PageHeader.astro";
 import TallerLayout from "../../../layouts/TallerLayout.astro";
 import { isAllowedOrigin } from "../../../server/api/handlers.ts";
 import { loginRedirect, requireAdmin, SESSION_COOKIE } from "../../../server/auth/admin-auth.ts";
@@ -129,69 +131,77 @@ const notice = notices[Astro.url.searchParams.get("hecho") ?? ""];
 ---
 
 <TallerLayout title={`${service.name} — Vector Bikes`} description="Detalle del servicio y precios por tipo de bicicleta." path="/taller/catalogo" user={user}>
-  <a href="/taller/catalogo">Volver al catálogo</a>
-  <h1>{service.name}</h1>
-  {notice && <p role="status">{notice}</p>}
-  {error && <p role="alert" id="form-error">{error}</p>}
-  {canEdit ? (
-    <form method="post" action={PATH}>
-      <input type="hidden" name="accion" value="servicio" />
-      <div class="fields">
-        <div class="field">
-          <label for="name">Nombre</label>
-          <input id="name" name="name" required minlength="2" maxlength="80" value={values.name} aria-invalid={Boolean(fieldErrors.name)} aria-describedby={fieldErrors.name ? "name-error" : undefined} />
-          {fieldErrors.name && <p id="name-error">{fieldErrors.name}</p>}
-        </div>
-        <div class="field">
-          <label for="estimatedMinutes">Duración estimada (minutos)</label>
-          <input id="estimatedMinutes" name="estimatedMinutes" type="number" required min="5" max="1440" step="1" value={values.estimatedMinutes} aria-invalid={Boolean(fieldErrors.estimatedMinutes)} aria-describedby={fieldErrors.estimatedMinutes ? "estimatedMinutes-error" : undefined} />
-          {fieldErrors.estimatedMinutes && <p id="estimatedMinutes-error">{fieldErrors.estimatedMinutes}</p>}
-        </div>
-        {textFields.map((field) => (
-          <div class="field">
-            <label for={field.key}>{field.label}</label>
-            <textarea id={field.key} name={field.key} maxlength="1000" rows="3" aria-invalid={Boolean(fieldErrors[field.key])} aria-describedby={fieldErrors[field.key] ? `${field.key}-error` : undefined}>{values[field.key]}</textarea>
-            {fieldErrors[field.key] && <p id={`${field.key}-error`}>{fieldErrors[field.key]}</p>}
+  <div class="stack">
+    <PageHeader title={service.name}>
+      <a slot="actions" href="/taller/catalogo">Volver al catálogo</a>
+    </PageHeader>
+    {notice && <p role="status">{notice}</p>}
+    {error && <p role="alert" id="form-error">{error}</p>}
+    <Card>
+      {canEdit ? (
+        <form method="post" action={PATH}>
+          <input type="hidden" name="accion" value="servicio" />
+          <div class="fields">
+            <div class="field">
+              <label for="name">Nombre</label>
+              <input id="name" name="name" required minlength="2" maxlength="80" value={values.name} aria-invalid={Boolean(fieldErrors.name)} aria-describedby={fieldErrors.name ? "name-error" : undefined} />
+              {fieldErrors.name && <p id="name-error">{fieldErrors.name}</p>}
+            </div>
+            <div class="field">
+              <label for="estimatedMinutes">Duración estimada (minutos)</label>
+              <input id="estimatedMinutes" name="estimatedMinutes" type="number" required min="5" max="1440" step="1" value={values.estimatedMinutes} aria-invalid={Boolean(fieldErrors.estimatedMinutes)} aria-describedby={fieldErrors.estimatedMinutes ? "estimatedMinutes-error" : undefined} />
+              {fieldErrors.estimatedMinutes && <p id="estimatedMinutes-error">{fieldErrors.estimatedMinutes}</p>}
+            </div>
+            {textFields.map((field) => (
+              <div class="field">
+                <label for={field.key}>{field.label}</label>
+                <textarea id={field.key} name={field.key} maxlength="1000" rows="3" aria-invalid={Boolean(fieldErrors[field.key])} aria-describedby={fieldErrors[field.key] ? `${field.key}-error` : undefined}>{values[field.key]}</textarea>
+                {fieldErrors[field.key] && <p id={`${field.key}-error`}>{fieldErrors[field.key]}</p>}
+              </div>
+            ))}
+            <fieldset>
+              <legend>Estado del servicio</legend>
+              <div class="options"><label><input type="checkbox" name="isActive" value="1" checked={isActive} />Servicio activo</label></div>
+            </fieldset>
           </div>
-        ))}
-        <fieldset>
-          <legend>Estado del servicio</legend>
-          <div class="options"><label><input type="checkbox" name="isActive" value="1" checked={isActive} />Servicio activo</label></div>
-        </fieldset>
+          <button type="submit" class="btn">Guardar servicio</button>
+        </form>
+      ) : (
+        <dl class="data">
+          <dt>Duración estimada</dt><dd>{service.estimatedMinutes} minutos</dd>
+          <dt>Estado</dt><dd>{service.isActive ? "Activo" : "Inactivo"}</dd>
+          {textFields.map((field) => <><dt>{field.label}</dt><dd class={values[field.key] ? undefined : "muted"}>{values[field.key] || "Sin información"}</dd></>)}
+        </dl>
+      )}
+    </Card>
+    <Card title="Precios por tipo de bicicleta">
+      <div class="scroll-x">
+        <table class="dense">
+          <caption>Precios en pesos chilenos</caption>
+          <thead><tr><th scope="col">Tipo de bicicleta</th><th scope="col">Precio actual</th>{canEdit && <th scope="col">Editar precio</th>}</tr></thead>
+          <tbody>
+            {BIKE_TYPES.map((type) => (
+              <tr>
+                <th scope="row">{BIKE_TYPE_LABELS[type]}</th>
+                <td class={service.prices[type] === undefined ? "muted" : "mono"}>{service.prices[type] === undefined ? "Sin precio" : formatClp(service.prices[type])}</td>
+                {canEdit && <td>
+                  <form method="post" action={PATH}>
+                    <fieldset class="field">
+                      <legend>Precio {BIKE_TYPE_LABELS[type]}</legend>
+                      <input type="hidden" name="accion" value="precio" />
+                      <input type="hidden" name="bikeType" value={type} />
+                      <label for={`price-${type}`}>Precio {BIKE_TYPE_LABELS[type]} (CLP)</label>
+                      <input id={`price-${type}`} name="priceClp" type="number" required min="0" max="2147483647" step="1" value={failedAction === "precio" && failedBike === type ? failedPrice : service.prices[type] ?? ""} aria-invalid={failedBike === type && Boolean(fieldErrors.priceClp)} aria-describedby={failedBike === type && fieldErrors.priceClp ? `price-error-${type}` : undefined} />
+                      {failedBike === type && fieldErrors.priceClp && <p id={`price-error-${type}`}>{fieldErrors.priceClp}</p>}
+                      <button type="submit" class="btn">Guardar precio {BIKE_TYPE_LABELS[type]}</button>
+                    </fieldset>
+                  </form>
+                </td>}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-      <button type="submit" class="btn">Guardar servicio</button>
-    </form>
-  ) : (
-    <dl>
-      <dt>Duración estimada</dt><dd>{service.estimatedMinutes} minutos</dd>
-      <dt>Estado</dt><dd>{service.isActive ? "Activo" : "Inactivo"}</dd>
-      {textFields.map((field) => <><dt>{field.label}</dt><dd>{values[field.key] || "Sin información"}</dd></>)}
-    </dl>
-  )}
-  <h2>Precios por tipo de bicicleta</h2>
-  <table class="dense">
-    <caption>Precios en pesos chilenos</caption>
-    <thead><tr><th scope="col">Tipo de bicicleta</th><th scope="col">Precio actual</th>{canEdit && <th scope="col">Editar precio</th>}</tr></thead>
-    <tbody>
-      {BIKE_TYPES.map((type) => (
-        <tr>
-          <th scope="row">{BIKE_TYPE_LABELS[type]}</th>
-          <td>{service.prices[type] === undefined ? "Sin precio" : formatClp(service.prices[type])}</td>
-          {canEdit && <td>
-            <form method="post" action={PATH}>
-              <fieldset class="field">
-                <legend>Precio {BIKE_TYPE_LABELS[type]}</legend>
-                <input type="hidden" name="accion" value="precio" />
-                <input type="hidden" name="bikeType" value={type} />
-                <label for={`price-${type}`}>Precio {BIKE_TYPE_LABELS[type]} (CLP)</label>
-                <input id={`price-${type}`} name="priceClp" type="number" required min="0" max="2147483647" step="1" value={failedAction === "precio" && failedBike === type ? failedPrice : service.prices[type] ?? ""} aria-invalid={failedBike === type && Boolean(fieldErrors.priceClp)} aria-describedby={failedBike === type && fieldErrors.priceClp ? `price-error-${type}` : undefined} />
-                {failedBike === type && fieldErrors.priceClp && <p id={`price-error-${type}`}>{fieldErrors.priceClp}</p>}
-                <button type="submit">Guardar precio {BIKE_TYPE_LABELS[type]}</button>
-              </fieldset>
-            </form>
-          </td>}
-        </tr>
-      ))}
-    </tbody>
-  </table>
+    </Card>
+  </div>
 </TallerLayout>
