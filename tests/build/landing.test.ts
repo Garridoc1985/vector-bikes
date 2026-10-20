@@ -23,7 +23,7 @@ function buildTimeWhatsapp(): string | undefined {
 describe("landing construida", () => {
   it("tiene un solo h1 con el título del prototipo", () => {
     expect(occurrences("<h1")).toBe(1);
-    expect(html).toContain("Mecánica de precisión.");
+    expect(html).toContain("Mecánica de precisión en Vitacura.");
   });
 
   it("ordena las secciones como el diseño aprobado", () => {
