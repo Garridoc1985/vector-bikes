@@ -1,7 +1,11 @@
 ---
 import { z } from "zod";
 import PhotoCapture from "../../../../components/taller/PhotoCapture.tsx";
+import Card from "../../../../components/taller/Card.astro";
+import OrderTabs from "../../../../components/taller/OrderTabs.astro";
+import PageHeader from "../../../../components/taller/PageHeader.astro";
 import TallerLayout from "../../../../layouts/TallerLayout.astro";
+import { ORDER_TABS } from "../../../../lib/taller-tabs.ts";
 import { loginRedirect, requireAdmin, SESSION_COOKIE } from "../../../../server/auth/admin-auth.ts";
 import { can, forbiddenResponse } from "../../../../server/auth/permissions.ts";
 import { getDb } from "../../../../server/db/client.ts";
@@ -47,17 +51,19 @@ const stages = [
   { stage: "reparacion", title: "Reparación", label: "Foto de reparación" },
   { stage: "terminado", title: "Trabajo terminado", label: "Foto de trabajo terminado" },
 ] as const;
+const tabs = ORDER_TABS.filter((tab) => can(user.role, tab.permission));
 ---
 
 <TallerLayout title={`${number} · Galería — Vector Bikes`} description="Fotos de la orden agrupadas por etapa." path="/taller/ordenes" user={user}>
-  <h1>{number} · Galería</h1>
-  <span class={`status status--${order.status}`}>{STATUS_LABELS[order.status as OrderStatus]}</span>
-  <a class="btn ghost" href={`/taller/ordenes/${order.id}`}>Volver a la orden</a>
-  {stages.map(({ stage, title, label }) => <section aria-labelledby={`${stage}-heading`}>
-    <h2 id={`${stage}-heading`}>{title}</h2>
-    <div class="grid-photos">
-      {photos.filter((photo) => photo.stage === stage).map((photo, index) => <img src={photo.thumbUrl} alt={`${label} ${index + 1}`} />)}
-    </div>
-    {stage !== "recepcion" && canUpload && stageAcceptsStatus(stage, order.status) && <PhotoCapture client:load uploadUrl={`/taller/ordenes/${order.id}/fotos`} stage={stage} label={label} />}
-  </section>)}
+  <div class="stack">
+    <PageHeader title={`${number} · Galería`} status={{ status: order.status, label: STATUS_LABELS[order.status as OrderStatus] }} />
+    <OrderTabs orderId={order.id} active="galeria" tabs={tabs} />
+    {stages.map(({ stage, title, label }) => <Card id={`${stage}-heading`} title={title}>
+      <div class="grid-photos">
+        {photos.filter((photo) => photo.stage === stage).map((photo, index) => <img src={photo.thumbUrl} alt={`${label} ${index + 1}`} />)}
+      </div>
+      {photos.filter((photo) => photo.stage === stage).length === 0 && <p class="muted">Sin fotos de esta etapa.</p>}
+      {stage !== "recepcion" && canUpload && stageAcceptsStatus(stage, order.status) && <PhotoCapture client:load uploadUrl={`/taller/ordenes/${order.id}/fotos`} stage={stage} label={label} />}
+    </Card>)}
+  </div>
 </TallerLayout>

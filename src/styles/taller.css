@@ -147,9 +147,26 @@
   margin: 0;
   padding-inline-start: 18px;
 }
+/* Texto secundario: vacíos, ayudas y notas. */
+.taller .muted {
+  color: var(--steel);
+}
+/* Tabla ancha: hace scroll ella, no la página. */
+.taller .scroll-x {
+  overflow-x: auto;
+}
+.taller .log {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
 /* Pila vertical de las páginas del área. */
 .taller .stack {
   display: grid;
+  /* minmax(0,…) o los hijos anchos ensanchan la página en vez de hacer scroll. */
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
   gap: 16px;
 }

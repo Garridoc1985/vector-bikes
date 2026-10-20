@@ -1,6 +1,10 @@
 ---
 import { z } from "zod";
+import Card from "../../../../components/taller/Card.astro";
+import OrderTabs from "../../../../components/taller/OrderTabs.astro";
+import PageHeader from "../../../../components/taller/PageHeader.astro";
 import TallerLayout from "../../../../layouts/TallerLayout.astro";
+import { ORDER_TABS } from "../../../../lib/taller-tabs.ts";
 import { formatClp } from "../../../../server/email/templates.ts";
 import { isAllowedOrigin } from "../../../../server/api/handlers.ts";
 import { loginRedirect, requireAdmin, SESSION_COOKIE } from "../../../../server/auth/admin-auth.ts";
@@ -149,73 +153,100 @@ const canTake =
   user.role === "mechanic" &&
   order.assignedMechanicId === null &&
   (order.status === "recibida" || order.status === "diagnostico");
-const navigation: { suffix: string; label: string; permission: Action }[] = [
-  { suffix: "recepcion", label: "Recepción", permission: "reception.perform" },
-  { suffix: "cierre", label: "Fotos y firma", permission: "reception.perform" },
-  { suffix: "lineas", label: "Líneas", permission: "orders.edit" },
-  { suffix: "galeria", label: "Galería", permission: "photos.upload" },
-  { suffix: "adicional", label: "Adicional", permission: "approvals.create" },
-  { suffix: "control", label: "Control de calidad", permission: "orders.edit" },
-  { suffix: "entrega", label: "Entrega", permission: "delivery.complete" },
-  { suffix: "componentes", label: "Componentes", permission: "components.manage" },
-  { suffix: "informe", label: "Informe", permission: "reports.generate" },
-  { suffix: "etiqueta", label: "Etiqueta", permission: "orders.edit" },
-];
+const tabs = ORDER_TABS.filter((tab) => can(user.role, tab.permission));
 ---
 
 <TallerLayout title={`${number} — Vector Bikes`} description="Detalle e historial de la orden de trabajo." path="/taller/ordenes" user={user}>
-  <h1>{number}</h1>
-  <span class={`status status--${order.status}`}>{STATUS_LABELS[order.status as OrderStatus]}</span>
-  {Astro.url.searchParams.get("hecho") === "guardado" && <p role="status">Cambios guardados.</p>}
-  {error && <p role="alert">{error}</p>}
-  <h2>Cliente</h2><p>{customer.name}</p>
-  {can(user.role, "customers.manage") && <dl><dt>Teléfono</dt><dd>{customer.phoneE164}</dd><dt>Correo</dt><dd>{customer.email ?? "Sin correo"}</dd><dt>RUT</dt><dd>{customer.rut ?? "Sin RUT"}</dd></dl>}
-  <h2>Bicicleta</h2><p>{bike.brand} {bike.model} · {BIKE_TYPE_LABELS[bike.bikeType as BikeType]}</p>
-  <p>Servicio solicitado: {order.requestedService}</p>
-  <p>Entrega estimada: {order.estimatedDeliveryDate ?? "Sin fecha"}</p>
-  <p>Total para el cliente: {formatClp(order.totalClp)}</p>
-  {warrantyOfNumber !== null && <span class="status">Garantía de {formatOrderNumber(warrantyOfNumber)}</span>}
-  <nav aria-label="Acciones de la orden">
-    {navigation.filter((link) => can(user.role, link.permission)).map((link) => <a class="btn ghost" href={`${PATH}/${link.suffix}`}>{link.label}</a>)}
-  </nav>
-  {order.status === "entregada" && can(user.role, "warranty.open") && <section aria-labelledby="warranty-title">
-    <h2 id="warranty-title">Abrir garantía</h2>
-    <form method="post" action={PATH}>
-      <input type="hidden" name="action" value="warranty" />
-      <div class="field">
-        <label for="reason">Motivo</label>
-        <input id="reason" name="reason" type="text" required minlength="3" maxlength="300" value={values.reason ?? ""} aria-invalid={Boolean(fieldErrors.reason)} aria-describedby={fieldErrors.reason ? "reason-error" : undefined} />
-        {fieldErrors.reason && <p id="reason-error">{fieldErrors.reason}</p>}
-      </div>
-      <button class="btn" type="submit">Abrir garantía</button>
-    </form>
-  </section>}
-  {targets.length > 0 && <section aria-labelledby="status-title">
-    <h2 id="status-title">Cambiar estado</h2>
-    <form method="post" action={PATH}>
-      <input type="hidden" name="action" value="status" />
-      <div class="field"><label for="note">Nota del cambio (opcional)</label><textarea id="note" name="note" rows="2" maxlength="2000" aria-invalid={Boolean(fieldErrors.note)} aria-describedby={fieldErrors.note ? "note-error" : undefined}>{values.note ?? ""}</textarea>{fieldErrors.note && <p id="note-error">{fieldErrors.note}</p>}</div>
-      <div class="options">{targets.map((target) => <button class="btn" type="submit" name="to" value={target}>Pasar a {STATUS_LABELS[target]}</button>)}</div>
-    </form>
-  </section>}
-  <section aria-labelledby="assignment-title">
-    <h2 id="assignment-title">Mecánico asignado</h2><p>{mechanicName ?? "Sin asignar"}</p>
-    {can(user.role, "orders.assign") && <form method="post" action={PATH}>
-      <input type="hidden" name="action" value="assign" />
-      <div class="field"><label for="mechanicId">Mecánico</label><select id="mechanicId" name="mechanicId" aria-invalid={Boolean(fieldErrors.mechanicId)} aria-describedby={fieldErrors.mechanicId ? "mechanicId-error" : undefined}><option value="">Sin asignar</option>{mechanics.map((mechanic) => <option value={mechanic.id} selected={mechanic.id === order.assignedMechanicId}>{mechanic.name}</option>)}</select>{fieldErrors.mechanicId && <p id="mechanicId-error">{fieldErrors.mechanicId}</p>}</div>
-      <button class="btn" type="submit">Guardar asignación</button>
-    </form>}
-    {canTake && <form method="post" action={PATH}><input type="hidden" name="action" value="take" /><button class="btn" type="submit">Tomar orden</button></form>}
-  </section>
-  <form method="post" action={PATH}>
-    <input type="hidden" name="action" value="notes" />
-    <fieldset><legend>Información de la orden</legend><div class="fields">
-      {noteFields.map(({ key, label }) => <div class="field"><label for={key}>{label}</label><textarea id={key} name={key} rows="3" maxlength="2000" aria-invalid={Boolean(fieldErrors[key])} aria-describedby={fieldErrors[key] ? `${key}-error` : undefined}>{values.action === "notes" ? values[key] ?? "" : order[key] ?? ""}</textarea>{fieldErrors[key] && <p id={`${key}-error`}>{fieldErrors[key]}</p>}</div>)}
-    </div><button class="btn" type="submit">Guardar información</button></fieldset>
-  </form>
-  <h2>Historial</h2>
-  <div style="overflow-x:auto"><table class="dense">
-    <caption>Cambios de estado</caption><thead><tr><th scope="col">Fecha</th><th scope="col">Desde</th><th scope="col">Hasta</th><th scope="col">Autor</th><th scope="col">Nota</th></tr></thead>
-    <tbody>{history.map(({ history: entry, authorName }) => <tr><td>{entry.createdAt.toLocaleString("es-CL", { timeZone: "America/Santiago" })}</td><td>{entry.fromStatus ? STATUS_LABELS[entry.fromStatus as OrderStatus] : "Creación"}</td><td>{STATUS_LABELS[entry.toStatus as OrderStatus]}</td><td>{authorName ?? "Sistema"}</td><td>{entry.note ?? "Sin nota"}</td></tr>)}</tbody>
-  </table></div>
+  <div class="stack">
+    <PageHeader title={number} status={{ status: order.status, label: STATUS_LABELS[order.status as OrderStatus] }}>
+      {warrantyOfNumber !== null && <span class="status" slot="actions">Garantía de {formatOrderNumber(warrantyOfNumber)}</span>}
+    </PageHeader>
+    <OrderTabs orderId={order.id} active="" tabs={tabs} />
+    {Astro.url.searchParams.get("hecho") === "guardado" && <p role="status">Cambios guardados.</p>}
+    {error && <p role="alert">{error}</p>}
+
+    <div class="order-cols">
+      <Card id="customer-title" title="Cliente">
+        <p>{customer.name}</p>
+        {can(user.role, "customers.manage") && <dl class="data"><dt>Teléfono</dt><dd>{customer.phoneE164}</dd><dt>Correo</dt><dd>{customer.email ?? "Sin correo"}</dd><dt>RUT</dt><dd>{customer.rut ?? "Sin RUT"}</dd></dl>}
+      </Card>
+      <Card id="bike-title" title="Bicicleta">
+        <p>{bike.brand} {bike.model} · {BIKE_TYPE_LABELS[bike.bikeType as BikeType]}</p>
+        <dl class="data">
+          <dt>Servicio solicitado</dt><dd>{order.requestedService}</dd>
+          <dt>Entrega estimada</dt><dd>{order.estimatedDeliveryDate ?? "Sin fecha"}</dd>
+          <dt>Total para el cliente</dt><dd class="mono">{formatClp(order.totalClp)}</dd>
+        </dl>
+      </Card>
+      <Card id="assignment-title" title="Mecánico asignado">
+        <p>{mechanicName ?? "Sin asignar"}</p>
+        {can(user.role, "orders.assign") && <form method="post" action={PATH}>
+          <input type="hidden" name="action" value="assign" />
+          <div class="field"><label for="mechanicId">Mecánico</label><select id="mechanicId" name="mechanicId" aria-invalid={Boolean(fieldErrors.mechanicId)} aria-describedby={fieldErrors.mechanicId ? "mechanicId-error" : undefined}><option value="">Sin asignar</option>{mechanics.map((mechanic) => <option value={mechanic.id} selected={mechanic.id === order.assignedMechanicId}>{mechanic.name}</option>)}</select>{fieldErrors.mechanicId && <p id="mechanicId-error">{fieldErrors.mechanicId}</p>}</div>
+          <button class="btn" type="submit">Guardar asignación</button>
+        </form>}
+        {canTake && <form method="post" action={PATH}><input type="hidden" name="action" value="take" /><button class="btn" type="submit">Tomar orden</button></form>}
+      </Card>
+      {targets.length > 0 && <Card id="status-title" title="Cambiar estado">
+        <form method="post" action={PATH}>
+          <input type="hidden" name="action" value="status" />
+          <div class="field"><label for="note">Nota del cambio (opcional)</label><textarea id="note" name="note" rows="2" maxlength="2000" aria-invalid={Boolean(fieldErrors.note)} aria-describedby={fieldErrors.note ? "note-error" : undefined}>{values.note ?? ""}</textarea>{fieldErrors.note && <p id="note-error">{fieldErrors.note}</p>}</div>
+          <div class="options">{targets.map((target) => <button class="btn" type="submit" name="to" value={target}>Pasar a {STATUS_LABELS[target]}</button>)}</div>
+        </form>
+      </Card>}
+      {order.status === "entregada" && can(user.role, "warranty.open") && <Card id="warranty-title" title="Abrir garantía">
+        <form method="post" action={PATH}>
+          <input type="hidden" name="action" value="warranty" />
+          <div class="field">
+            <label for="reason">Motivo</label>
+            <input id="reason" name="reason" type="text" required minlength="3" maxlength="300" value={values.reason ?? ""} aria-invalid={Boolean(fieldErrors.reason)} aria-describedby={fieldErrors.reason ? "reason-error" : undefined} />
+            {fieldErrors.reason && <p id="reason-error">{fieldErrors.reason}</p>}
+          </div>
+          <button class="btn" type="submit">Abrir garantía</button>
+        </form>
+      </Card>}
+    </div>
+
+    <Card>
+      <form method="post" action={PATH}>
+        <input type="hidden" name="action" value="notes" />
+        <fieldset><legend>Información de la orden</legend><div class="fields">
+          {noteFields.map(({ key, label }) => <div class="field"><label for={key}>{label}</label><textarea id={key} name={key} rows="3" maxlength="2000" aria-invalid={Boolean(fieldErrors[key])} aria-describedby={fieldErrors[key] ? `${key}-error` : undefined}>{values.action === "notes" ? values[key] ?? "" : order[key] ?? ""}</textarea>{fieldErrors[key] && <p id={`${key}-error`}>{fieldErrors[key]}</p>}</div>)}
+        </div><button class="btn" type="submit">Guardar información</button></fieldset>
+      </form>
+    </Card>
+
+    <Card id="history-title" title="Historial">
+      <div class="scroll-x"><table class="dense">
+        <caption>Cambios de estado</caption><thead><tr><th scope="col">Fecha</th><th scope="col">Desde</th><th scope="col">Hasta</th><th scope="col">Autor</th><th scope="col">Nota</th></tr></thead>
+        <tbody>{history.map(({ history: entry, authorName }) => <tr><td>{entry.createdAt.toLocaleString("es-CL", { timeZone: "America/Santiago" })}</td><td>{entry.fromStatus ? STATUS_LABELS[entry.fromStatus as OrderStatus] : "Creación"}</td><td>{STATUS_LABELS[entry.toStatus as OrderStatus]}</td><td>{authorName ?? "Sistema"}</td><td>{entry.note ?? "Sin nota"}</td></tr>)}</tbody>
+      </table></div>
+    </Card>
+  </div>
 </TallerLayout>
+
+<style is:global>
+  .taller .order-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 16px;
+  }
+  .taller .data {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 4px 12px;
+    margin: 0;
+  }
+  .taller .data dt {
+    color: var(--steel);
+  }
+  .taller .data dd {
+    margin: 0;
+  }
+  @media (min-width: 900px) {
+    .taller .order-cols {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+</style>

@@ -1,6 +1,10 @@
 ---
 import { z } from "zod";
+import Card from "../../../../components/taller/Card.astro";
+import OrderTabs from "../../../../components/taller/OrderTabs.astro";
+import PageHeader from "../../../../components/taller/PageHeader.astro";
 import TallerLayout from "../../../../layouts/TallerLayout.astro";
+import { ORDER_TABS } from "../../../../lib/taller-tabs.ts";
 import { isAllowedOrigin } from "../../../../server/api/handlers.ts";
 import { loginRedirect, requireAdmin, SESSION_COOKIE } from "../../../../server/auth/admin-auth.ts";
 import { can, forbiddenResponse } from "../../../../server/auth/permissions.ts";
@@ -95,51 +99,52 @@ if (Astro.request.method === "POST") {
   }
 }
 const history = await listQcChecks(db, user, order.id);
+const tabs = ORDER_TABS.filter((tab) => can(user.role, tab.permission));
 ---
 
 <TallerLayout title={`${number} · Control de calidad — Vector Bikes`} description="Control de calidad e historial de revisiones." path="/taller/ordenes" user={user}>
-  <header>
-    <h1>{number} · Control de calidad</h1>
-    <span class={`status status--${order.status}`}>{STATUS_LABELS[order.status as OrderStatus]}</span>
-  </header>
-  <a class="btn ghost" href={`/taller/ordenes/${order.id}`}>Volver a la orden</a>
-  {error && <p role="alert">{error}</p>}
-  {Astro.url.searchParams.get("hecho") === "aprobado" && <p role="status">Control de calidad aprobado.</p>}
-  {Astro.url.searchParams.get("hecho") === "rechazado" && <p role="status">Control rechazado. La orden vuelve a reparación.</p>}
-  {can(user.role, "qc.approve") ? (
-    order.status === "control_calidad" ? (
-      <form method="post" action={Astro.url.pathname}>
-        <div class="fields">
-          {QC_CHECK_KEYS.map((key) => (
-            <fieldset>
-              <legend>{QC_CHECK_LABELS[key]}</legend>
-              <div class="options">
-                {QC_RESULTS.map((result) => (
-                  <label><input type="radio" name={key} value={result} required checked={submitted[key] === result} aria-invalid={Boolean(fieldErrors[key])} aria-describedby={fieldErrors[key] ? `${key}-error` : undefined} />{QC_RESULT_LABELS[result]}</label>
-                ))}
-              </div>
-              {fieldErrors[key] && <p id={`${key}-error`}>{fieldErrors[key]}</p>}
-              <div class="field">
-                <label for={`${key}-note`}>Nota de {QC_CHECK_LABELS[key]} (opcional)</label>
-                <input id={`${key}-note`} name={`${key}_nota`} type="text" maxlength="300" value={submitted[`${key}_nota`] ?? ""} aria-invalid={Boolean(fieldErrors[`${key}_nota`])} aria-describedby={fieldErrors[`${key}_nota`] ? `${key}-note-error` : undefined} />
-                {fieldErrors[`${key}_nota`] && <p id={`${key}-note-error`}>{fieldErrors[`${key}_nota`]}</p>}
-              </div>
-            </fieldset>
-          ))}
-        </div>
-        <button type="submit" class="btn">Aprobar control</button>
-      </form>
-    ) : <p>La orden debe estar en control de calidad para registrar una revisión.</p>
-  ) : <p>Solo el dueño aprueba el control de calidad</p>}
-  <section aria-labelledby="history-heading">
-    <h2 id="history-heading">Historial de controles</h2>
-    {history.length === 0 ? <p>No hay controles registrados.</p> : (
-      <ul>{history.map((check) => (
-        <li>
-          <p>{check.createdAt.toLocaleString("es-CL", { timeZone: "America/Santiago" })} · {QC_CHECK_LABELS[check.itemKey as (typeof QC_CHECK_KEYS)[number]]}: {QC_RESULT_LABELS[check.result as (typeof QC_RESULTS)[number]]}{check.selfCheck ? " · Autocontrol" : ""}</p>
-          {check.note && <p>{check.note}</p>}
-        </li>
-      ))}</ul>
-    )}
-  </section>
+  <div class="stack">
+    <PageHeader title={`${number} · Control de calidad`} status={{ status: order.status, label: STATUS_LABELS[order.status as OrderStatus] }} />
+    <OrderTabs orderId={order.id} active="control" tabs={tabs} />
+    {error && <p role="alert">{error}</p>}
+    {Astro.url.searchParams.get("hecho") === "aprobado" && <p role="status">Control de calidad aprobado.</p>}
+    {Astro.url.searchParams.get("hecho") === "rechazado" && <p role="status">Control rechazado. La orden vuelve a reparación.</p>}
+    <Card>
+      {can(user.role, "qc.approve") ? (
+        order.status === "control_calidad" ? (
+          <form method="post" action={Astro.url.pathname}>
+            <div class="fields">
+              {QC_CHECK_KEYS.map((key) => (
+                <fieldset>
+                  <legend>{QC_CHECK_LABELS[key]}</legend>
+                  <div class="options">
+                    {QC_RESULTS.map((result) => (
+                      <label><input type="radio" name={key} value={result} required checked={submitted[key] === result} aria-invalid={Boolean(fieldErrors[key])} aria-describedby={fieldErrors[key] ? `${key}-error` : undefined} />{QC_RESULT_LABELS[result]}</label>
+                    ))}
+                  </div>
+                  {fieldErrors[key] && <p id={`${key}-error`}>{fieldErrors[key]}</p>}
+                  <div class="field">
+                    <label for={`${key}-note`}>Nota de {QC_CHECK_LABELS[key]} (opcional)</label>
+                    <input id={`${key}-note`} name={`${key}_nota`} type="text" maxlength="300" value={submitted[`${key}_nota`] ?? ""} aria-invalid={Boolean(fieldErrors[`${key}_nota`])} aria-describedby={fieldErrors[`${key}_nota`] ? `${key}-note-error` : undefined} />
+                    {fieldErrors[`${key}_nota`] && <p id={`${key}-note-error`}>{fieldErrors[`${key}_nota`]}</p>}
+                  </div>
+                </fieldset>
+              ))}
+            </div>
+            <button type="submit" class="btn">Aprobar control</button>
+          </form>
+        ) : <p class="muted">La orden debe estar en control de calidad para registrar una revisión.</p>
+      ) : <p class="muted">Solo el dueño aprueba el control de calidad</p>}
+    </Card>
+    <Card id="history-heading" title="Historial de controles">
+      {history.length === 0 ? <p class="muted">No hay controles registrados.</p> : (
+        <ul class="log">{history.map((check) => (
+          <li>
+            <p>{check.createdAt.toLocaleString("es-CL", { timeZone: "America/Santiago" })} · {QC_CHECK_LABELS[check.itemKey as (typeof QC_CHECK_KEYS)[number]]}: {QC_RESULT_LABELS[check.result as (typeof QC_RESULTS)[number]]}{check.selfCheck ? " · Autocontrol" : ""}</p>
+            {check.note && <p class="muted">{check.note}</p>}
+          </li>
+        ))}</ul>
+      )}
+    </Card>
+  </div>
 </TallerLayout>
