@@ -243,8 +243,13 @@ const tabs = ORDER_TABS.filter((tab) => can(user.role, tab.permission));
           <div class="field"><label for="note">Nota del cambio (opcional)</label><textarea id="note" name="note" rows="2" maxlength="2000" aria-invalid={Boolean(fieldErrors.note)} aria-describedby={fieldErrors.note ? "note-error" : undefined}>{values.note ?? ""}</textarea>{fieldErrors.note && <p id="note-error">{fieldErrors.note}</p>}</div>
           <button class="btn" type="submit" disabled={!hasManualTransition}>Actualizar estado</button>
         </form>
-        {cancellationTargets.length > 0 && <form method="post" action={PATH}>
+        {cancellationTargets.length > 0 && <form class="order-cancel" method="post" action={PATH}>
           <input type="hidden" name="action" value="status" />
+          <p class="label">Cancelación</p>
+          <div class="field">
+            <label for="cancel-note">Motivo de la cancelación (opcional)</label>
+            <textarea id="cancel-note" name="note" rows="2" maxlength="2000"></textarea>
+          </div>
           <div class="options">{cancellationTargets.map((target) => <button class="btn ghost" type="submit" name="to" value={target}>{target === "cancelada" ? "Cancelar orden" : "Marcar trabajo rechazado"}</button>)}</div>
         </form>}
       </Card>}
@@ -300,6 +305,15 @@ const tabs = ORDER_TABS.filter((tab) => can(user.role, tab.permission));
     background: var(--hatch);
     color: var(--steel);
     cursor: not-allowed;
+  }
+  /* La cancelación va separada del cambio de estado: en tablet, pegada
+     debajo de "Actualizar estado", invitaba al toque equivocado. */
+  .taller .order-cancel {
+    display: grid;
+    gap: 12px;
+    margin-block-start: 24px;
+    padding-block-start: 24px;
+    border-block-start: 1px solid var(--rule);
   }
   .taller .status-selection {
     display: flex;
