@@ -1,4 +1,5 @@
 import type { ApiDay, Mode, State } from "./booking-state.ts";
+import { timeRange } from "./booking-state.ts";
 
 const CAPACITY = 4;
 const TIMEZONE_LABEL = "es-CL";
@@ -133,6 +134,45 @@ export function DayFieldset({
   );
 }
 
+function rulerSlots(day: ApiDay, chosen: string[], onPick: (start: string) => void) {
+  const buttons = [];
+  let skipNext = false;
+  for (const [index, block] of day.blocks.entries()) {
+    if (skipNext) {
+      skipNext = false;
+      continue;
+    }
+    const selected = chosen.includes(block.start);
+    const next = day.blocks[index + 1];
+    const range =
+      selected && next && chosen.includes(next.start) ? timeRange([block.start, next.start]) : null;
+    skipNext = range !== null;
+    const disabled = !selected && block.state !== "free";
+    const classes = ["slot", selected ? "sel" : block.state === "free" ? "" : block.state]
+      .filter(Boolean)
+      .join(" ");
+    buttons.push(
+      <button
+        key={block.start}
+        type="button"
+        class={classes}
+        style={range ? "grid-column:span 2" : undefined}
+        aria-disabled={disabled}
+        aria-pressed={selected}
+        aria-label={
+          range
+            ? `Retiro de ${range.replace(" – ", " a ")}, 1 hora, seleccionado`
+            : blockLabel(block.state, block.start)
+        }
+        onClick={() => onPick(block.start)}
+      >
+        {range ?? (block.state === "taken" ? "—" : block.start)}
+      </button>,
+    );
+  }
+  return buttons;
+}
+
 function Ruler({
   day,
   chosen,
@@ -160,26 +200,7 @@ function Ruler({
           aria-label="Bloques del día"
           style={`grid-template-columns:${columns}`}
         >
-          {day.blocks.map((block) => {
-            const selected = chosen.includes(block.start);
-            const disabled = !selected && block.state !== "free";
-            const classes = ["slot", selected ? "sel" : block.state === "free" ? "" : block.state]
-              .filter(Boolean)
-              .join(" ");
-            return (
-              <button
-                key={block.start}
-                type="button"
-                class={classes}
-                aria-disabled={disabled}
-                aria-pressed={selected}
-                aria-label={blockLabel(block.state, block.start)}
-                onClick={() => onPick(block.start)}
-              >
-                {block.state === "taken" ? "—" : block.start}
-              </button>
-            );
-          })}
+          {rulerSlots(day, chosen, onPick)}
         </div>
       </div>
     </div>

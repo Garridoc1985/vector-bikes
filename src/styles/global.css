@@ -603,9 +603,6 @@ p {
   background: var(--ink);
   color: var(--on-ink);
 }
-.slot.sel + .slot.sel {
-  border-left-color: color-mix(in srgb, var(--on-ink) 30%, transparent);
-}
 .legend {
   display: flex;
   flex-wrap: wrap;
