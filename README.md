@@ -94,6 +94,7 @@ Dueño, administrador o recepción abren **Adicional**, escriben problema, recom
 ### Control de calidad
 
 Al terminar la reparación, pasa la orden a **Control de calidad** y abre esa pantalla en la tablet. Solo el dueño puede registrar la revisión: marca **OK** o **Falla** en todos los puntos, anota lo necesario y pulsa **Aprobar control**. Si todo está OK, queda **Lista para retirar**; si hay una falla, vuelve a **En reparación** y conserva el historial. Actualmente se permite el autocontrol del dueño y queda identificado en el historial.
+Al aprobar el control, se avisa al cliente por correo si tiene un correo registrado.
 
 ### Pagos y entrega
 

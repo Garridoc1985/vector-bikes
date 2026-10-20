@@ -1,9 +1,17 @@
 import { DateTime } from "luxon";
 import { SITE } from "../../lib/site.ts";
-import { TIMEZONE } from "../booking/rules.ts";
+import { RECEPTION_HOURS, TIMEZONE } from "../booking/rules.ts";
 import type { Booking } from "../db/schema.ts";
 
 export type RenderedEmail = { subject: string; html: string; text: string };
+
+export type ReadyForPickup = {
+  orderNumber: string;
+  customerName: string;
+  bike: string;
+  totalClp: number;
+  paidClp: number;
+};
 
 type Row = readonly [label: string, value: string];
 
@@ -171,5 +179,57 @@ export function shopCancellationEmail(booking: Booking): RenderedEmail {
       ["Correo", booking.email ?? "Sin correo"],
     ],
     notes: [],
+  });
+}
+
+/** Horario de retiro desde `RECEPTION_HOURS`, agrupando los días seguidos que coinciden. */
+function receptionHours(): string[] {
+  const names = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
+  const label = (day: number) => {
+    const schedule = RECEPTION_HOURS[day];
+    return schedule ? `${schedule.open} a ${schedule.close}` : "cerrado";
+  };
+  const groups: { from: number; to: number; hours: string }[] = [];
+  for (let day = 1; day <= 7; day++) {
+    const hours = label(day);
+    const last = groups.at(-1);
+    if (last && last.hours === hours) last.to = day;
+    else groups.push({ from: day, to: day, hours });
+  }
+  return groups.map(({ from, to, hours }) => {
+    const first = names[from - 1] ?? "";
+    const last = names[to - 1] ?? "";
+    const span = from === to ? first : `${first} a ${last}`;
+    return `${capitalize(span)}${hours === "cerrado" ? " y feriados" : ""}: ${hours}`;
+  });
+}
+
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+/** Aviso al cliente después de aprobar el control de calidad, sin enlaces. */
+export function readyForPickupEmail(order: ReadyForPickup): RenderedEmail {
+  const firstName = order.customerName.split(" ")[0] ?? order.customerName;
+  const hours = receptionHours();
+  return render(`Tu bicicleta está lista para retirar · ${order.orderNumber} · ${SITE.name}`, {
+    heading: "Tu bicicleta está lista para retirar",
+    intro: [`Hola ${firstName}, tu bicicleta ya pasó el control de calidad. Te esperamos.`],
+    rows: [
+      ["Orden", order.orderNumber],
+      ["Bicicleta", order.bike],
+      ["Total", formatClp(order.totalClp)],
+      ["Abonado", formatClp(order.paidClp)],
+      [
+        "Saldo",
+        order.paidClp >= order.totalClp ? "Pagado" : formatClp(order.totalClp - order.paidClp),
+      ],
+    ],
+    notes: [
+      `Dirección del taller: ${SITE.streetAddress}, ${SITE.locality}.`,
+      `Horario de retiro: ${hours.join("; ")}.`,
+      "Puedes pagar con efectivo, transferencia o tarjeta.",
+      "Si coordinamos la devolución a domicilio, te llamaremos para acordar la hora.",
+    ],
   });
 }

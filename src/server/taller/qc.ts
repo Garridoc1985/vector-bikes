@@ -1,11 +1,17 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
+import { getEmailEnv } from "../../lib/env.ts";
+import { log } from "../../lib/log.ts";
 import type { SessionUser } from "../auth/admin-auth.ts";
 import { can } from "../auth/permissions.ts";
 import type { AppDb } from "../db/client.ts";
 import { qcChecks, workOrders } from "../db/schema-orders.ts";
+import { auditLog, bikes, customers } from "../db/schema-taller.ts";
+import type { NotifyDeps } from "../email/notifications.ts";
+import { readyForPickupEmail } from "../email/templates.ts";
+import { createTransport } from "../email/transport.ts";
 import { recordAudit } from "./audit.ts";
-import { recordStatusChange } from "./orders.ts";
+import { formatOrderNumber, recordStatusChange } from "./orders.ts";
 import { QC_CHECK_KEYS, QC_REQUIRE_SECOND_PERSON, QC_RESULTS } from "./rules.ts";
 import { canAccessOrder } from "./status.ts";
 
@@ -75,17 +81,86 @@ async function recordQcOutcome(
   return { ok: true, status } as const;
 }
 
+async function readyNotificationOrder(db: AppDb, actor: SessionUser, orderId: string) {
+  const [order] = await db
+    .select({
+      number: workOrders.number,
+      totalClp: workOrders.totalClp,
+      paidClp: workOrders.paidClp,
+      customerName: customers.name,
+      email: customers.email,
+      brand: bikes.brand,
+      model: bikes.model,
+    })
+    .from(workOrders)
+    .innerJoin(
+      customers,
+      and(eq(customers.id, workOrders.customerId), eq(customers.branchId, actor.branchId)),
+    )
+    .innerJoin(bikes, and(eq(bikes.id, workOrders.bikeId), eq(bikes.branchId, actor.branchId)))
+    .where(orderFilter(actor, orderId));
+  return order;
+}
+
+/** Post-commit: un fallo del aviso nunca cambia el resultado del control. */
+async function notifyReadyForPickup(
+  db: AppDb,
+  actor: SessionUser,
+  orderId: string,
+  now: Date,
+  deps: NotifyDeps,
+) {
+  try {
+    const order = await readyNotificationOrder(db, actor, orderId);
+    if (!order || order.email === null) return;
+    const [sent] = await db
+      .select({ id: auditLog.id })
+      .from(auditLog)
+      .where(
+        and(
+          eq(auditLog.branchId, actor.branchId),
+          eq(auditLog.action, "notify.ready_for_pickup"),
+          eq(auditLog.entityId, orderId),
+        ),
+      )
+      .limit(1);
+    if (sent) return;
+    const email = readyForPickupEmail({
+      ...order,
+      orderNumber: formatOrderNumber(order.number),
+      bike: `${order.brand} ${order.model}`.trim(),
+    });
+    const transport = deps.transport ?? createTransport(deps.env ?? getEmailEnv());
+    await transport.send({ to: order.email, ...email });
+    await recordAudit(
+      db,
+      {
+        branchId: actor.branchId,
+        actorUserId: actor.id,
+        action: "notify.ready_for_pickup",
+        entity: "work_order",
+        entityId: orderId,
+        details: { sent: true },
+      },
+      now,
+    );
+  } catch {
+    log.error("email.failed", { kind: "ready_for_pickup", orderId });
+  }
+}
+
 export async function submitQc(
   db: AppDb,
   actor: SessionUser,
   orderId: string,
   input: unknown,
   now: Date,
+  deps: NotifyDeps = {},
 ) {
   if (!can(actor.role, "qc.approve")) return { ok: false, code: "forbidden" } as const;
   const parsed = qcFormSchema.safeParse(input);
   if (!parsed.success) return { ok: false, code: "validation_error" } as const;
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const [order] = await tx
       .select()
       .from(workOrders)
@@ -111,6 +186,10 @@ export async function submitQc(
     const failedItems = QC_CHECK_KEYS.filter((key) => parsed.data.checks[key].result === "falla");
     return recordQcOutcome(tx, actor, orderId, selfCheck, failedItems, now);
   });
+  if (result.ok && result.status === "lista_para_retirar") {
+    await notifyReadyForPickup(db, actor, orderId, now, deps);
+  }
+  return result;
 }
 
 export async function listQcChecks(db: AppDb, actor: SessionUser, orderId: string) {
