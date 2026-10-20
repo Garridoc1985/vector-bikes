@@ -125,24 +125,34 @@
 }
 @media (min-width: 1024px) {
   .taller {
+    --aside-w: 240px;
+    --aside-pad-y: 24px;
+    --aside-pad-x: 16px;
+    --aside-gap: 24px;
+    /* Alto fijo del bloque de identidad: de él cuelga el borde superior del panel. */
+    --aside-head: 56px;
     display: grid;
-    grid-template-columns: 240px minmax(0, 1fr);
+    grid-template-columns: var(--aside-w) minmax(0, 1fr);
   }
   .taller .taller-aside {
     position: sticky;
     top: 0;
     align-self: start;
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
     height: 100vh;
-    padding: 24px 16px;
+    padding: var(--aside-pad-y) var(--aside-pad-x);
     border-bottom: 0;
     border-inline-end: 1px solid var(--rule);
   }
   .taller .taller-id {
     display: block;
+    height: var(--aside-head);
     padding: 0;
+  }
+  .taller .taller-brand,
+  .taller .taller-user {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
   .taller .taller-user {
     margin-block-start: 8px;
@@ -151,18 +161,23 @@
   .taller .taller-close {
     display: none;
   }
-  /* En escritorio el panel es la columna misma: se anulan los estilos del navegador. */
+  /*
+   * El panel se fija bajo la identidad, abierto o cerrado: así el estado
+   * :popover-open (capa superior) se ve igual que la columna y no la tapa
+   * al pasar de tablet a escritorio con el menú abierto.
+   */
   .taller .taller-panel,
   .taller .taller-panel:popover-open {
-    position: static;
+    position: fixed;
+    top: calc(var(--aside-pad-y) + var(--aside-head) + var(--aside-gap));
+    bottom: var(--aside-pad-y);
+    left: var(--aside-pad-x);
     display: flex;
-    flex: 1;
     flex-direction: column;
-    gap: 24px;
-    inset: auto;
-    width: auto;
+    gap: var(--aside-gap);
+    width: calc(var(--aside-w) - 2 * var(--aside-pad-x));
     height: auto;
-    overflow: visible;
+    overflow-y: auto;
     margin: 0;
     padding: 0;
     border: 0;
