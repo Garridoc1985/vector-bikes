@@ -1,6 +1,7 @@
 ---
 import BookingIsland from "./islands/BookingIsland.tsx";
-import { SITE } from "../lib/site.ts";
+import { FAQ } from "../lib/faq.ts";
+import { SITE, whatsappHref } from "../lib/site.ts";
 
 interface Props {
   siteKey: string;
@@ -26,6 +27,8 @@ const ticks = Array.from({ length: AXIS_SPAN / 30 + 1 }, (_, index) => {
 
 const week = segment(15 * 60, 20 * 60);
 const saturday = segment(10 * 60, 14 * 60);
+/** Mismo origen que el botón flotante de Base.astro: el entorno, no SITE. */
+const whatsapp = whatsappHref(import.meta.env.PUBLIC_WHATSAPP_NUMBER);
 const numbers = [10, 12, 14, 16, 18, 20].map((hour) => ({
   left: ((hour - 10) / 10) * 100,
   label: `${hour}:00`,
@@ -129,6 +132,18 @@ const numbers = [10, 12, 14, 16, 18, 20].map((hour) => ({
         </p>
       </div>
     </div>
+    <noscript>
+      <p class="ruler-note">
+        Para reservar en línea necesitas activar JavaScript. También puedes escribirnos por WhatsApp
+        o llamar al taller.
+      </p>
+      {whatsapp && (
+        <a class="btn ghost" href={whatsapp} rel="noopener" target="_blank">
+          Escribir por WhatsApp
+        </a>
+      )}
+      <a class="btn ghost" href={`tel:${SITE.phone}`}>Llamar al taller</a>
+    </noscript>
     <BookingIsland client:visible siteKey={siteKey} />
   </div>
 </section>
@@ -166,6 +181,9 @@ const numbers = [10, 12, 14, 16, 18, 20].map((hour) => ({
       <p style="margin-top:12px">
         <a href={SITE.mapsUrl} rel="noopener" target="_blank">Abrir en Google Maps ↗</a>
       </p>
+      <p style="margin-top:12px">
+        <a href={`tel:${SITE.phone}`}>{SITE.phoneDisplay}</a>
+      </p>
     </div>
     <div>
       <span class="label">Horario de recepción</span>
@@ -185,40 +203,14 @@ const numbers = [10, 12, 14, 16, 18, 20].map((hour) => ({
       <div><h2>Antes de reservar.</h2></div>
     </div>
     <div class="faq">
-      <details open>
-        <summary>¿Qué pasa si encuentran un problema extra?</summary>
-        <p>
-          Te llamamos antes de hacer cualquier trabajo que no estaba en tu descripción. Te explicamos
-          qué encontramos y cuál es la solución; algunas no tienen costo extra y otras sí. Tú
-          decides.
-        </p>
-      </details>
-      <details>
-        <summary>¿Cómo pago?</summary>
-        <p>
-          En efectivo, por transferencia o con tarjeta, al momento de recibir tu bicicleta. En los
-          retiros a domicilio llevamos POS.
-        </p>
-      </details>
-      <details>
-        <summary>¿Puedo cambiar o cancelar mi hora?</summary>
-        <p>
-          Sí. En el correo de confirmación viene un enlace para cancelar. Si quieres otro horario,
-          cancela y reserva de nuevo.
-        </p>
-      </details>
-      <details>
-        <summary>¿Hasta dónde llega el retiro a domicilio?</summary>
-        <p>
-          Vitacura y Las Condes. Los $15.000 incluyen ir a buscar y devolver tu bicicleta.
-        </p>
-      </details>
-      <details>
-        <summary>¿Atienden domingos y feriados?</summary>
-        <p>
-          No. El sitio bloquea automáticamente los feriados, como el 18 y 19 de septiembre.
-        </p>
-      </details>
+      {
+        FAQ.map(({ q, a }, index) => (
+          <details open={index === 0}>
+            <summary>{q}</summary>
+            <p>{a}</p>
+          </details>
+        ))
+      }
     </div>
   </div>
 </section>

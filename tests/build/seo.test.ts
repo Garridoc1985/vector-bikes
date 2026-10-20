@@ -23,11 +23,21 @@ type LocalBusiness = {
   sameAs: string[];
 };
 
+type FaqPage = { "@type": string; mainEntity: unknown[] };
+type Graph = { "@graph": { "@type": string }[] };
+
+/** Devuelve el nodo del `@graph` con ese `@type`. */
+function node<T extends { "@type": string }>(block: string, type: string): T {
+  const found = (JSON.parse(block) as Graph)["@graph"].find((entry) => entry["@type"] === type);
+  if (!found) throw new Error(`Falta el nodo ${type} en el @graph.`);
+  return found as T;
+}
+
 describe("SEO del build", () => {
-  it("la landing tiene un único JSON-LD LocalBusiness con dirección y horarios", () => {
+  it("la landing tiene un único JSON-LD con LocalBusiness y FAQPage", () => {
     expect(index.split("application/ld+json").length - 1).toBe(1);
     const [block] = jsonLdBlocks(index);
-    const data = JSON.parse(block ?? "{}") as LocalBusiness;
+    const data = node<LocalBusiness>(block ?? "{}", "LocalBusiness");
 
     expect(data["@type"]).toBe("LocalBusiness");
     expect(data.address.streetAddress).toBe("Avenida Kennedy 7666");
@@ -35,6 +45,7 @@ describe("SEO del build", () => {
     expect(data.address.addressCountry).toBe("CL");
     expect(data.openingHoursSpecification).toHaveLength(2);
     expect(data.sameAs).toContain("https://instagram.com/vector.bikes");
+    expect(node<FaqPage>(block ?? "{}", "FAQPage").mainEntity).toHaveLength(5);
   });
 
   it("la landing declara canonical y Open Graph", () => {
@@ -45,10 +56,8 @@ describe("SEO del build", () => {
 
   it("declara el favicon SVG con respaldo PNG y apple-touch-icon", () => {
     expect(index).toContain('<link rel="icon" type="image/svg+xml" href="/favicon.svg"');
-    expect(index).toContain(
-      '<link rel="icon" type="image/png" href="/brand/vector-bikes-logo.png"',
-    );
-    expect(index).toContain('<link rel="apple-touch-icon" href="/brand/vector-bikes-logo.png"');
+    expect(index).toContain('<link rel="icon" type="image/png" href="/brand/favicon-32.png"');
+    expect(index).toContain('<link rel="apple-touch-icon" href="/brand/apple-touch-icon.png"');
     expect(read("favicon.svg")).toContain('href="/brand/vector-bikes-logo.png"');
   });
 
