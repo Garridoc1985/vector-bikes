@@ -232,18 +232,6 @@ const tabs = ORDER_TABS.filter((tab) => can(user.role, tab.permission));
     align-items: start;
     gap: 16px;
   }
-  .taller .data {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 4px 12px;
-    margin: 0;
-  }
-  .taller .data dt {
-    color: var(--steel);
-  }
-  .taller .data dd {
-    margin: 0;
-  }
   @media (min-width: 900px) {
     .taller .order-cols {
       grid-template-columns: repeat(2, minmax(0, 1fr));

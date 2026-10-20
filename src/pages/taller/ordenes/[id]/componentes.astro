@@ -1,6 +1,10 @@
 ---
 import { z } from "zod";
+import Card from "../../../../components/taller/Card.astro";
+import OrderTabs from "../../../../components/taller/OrderTabs.astro";
+import PageHeader from "../../../../components/taller/PageHeader.astro";
 import TallerLayout from "../../../../layouts/TallerLayout.astro";
+import { ORDER_TABS } from "../../../../lib/taller-tabs.ts";
 import { isAllowedOrigin } from "../../../../server/api/handlers.ts";
 import { loginRedirect, requireAdmin, SESSION_COOKIE } from "../../../../server/auth/admin-auth.ts";
 import { can, forbiddenResponse } from "../../../../server/auth/permissions.ts";
@@ -16,6 +20,8 @@ import {
 import { listItems } from "../../../../server/taller/items.ts";
 import { formatOrderNumber } from "../../../../server/taller/orders.ts";
 import { orderDetail } from "../../../../server/taller/status.ts";
+import { STATUS_LABELS } from "../../../../server/taller/rules.ts";
+import type { OrderStatus } from "../../../../server/taller/rules.ts";
 
 export const prerender = false;
 const db = getDb();
@@ -116,63 +122,68 @@ function invalid(field: string) {
 function value(field: string, fallback = "") {
   return submitted.action === "install" ? (submitted[field] ?? fallback) : fallback;
 }
+const tabs = ORDER_TABS.filter((tab) => can(user.role, tab.permission));
 ---
 
 <TallerLayout title={`${number} · Componentes — Vector Bikes`} description="Componentes instalados y reemplazados de la bicicleta." path="/taller/ordenes" user={user}>
-  <h1>{number} · Componentes</h1>
-  <p>{bike.brand} {bike.model}</p>
-  <p><a class="btn ghost" href={`/taller/ordenes/${order.id}`}>Volver a la orden</a></p>
-  {notice && <p role="status">{notice}</p>}
-  {error && <p id="form-error" role="alert">{error}</p>}
-  <div style="overflow-x:auto"><table class="dense tabular-nums">
-    <caption>Componentes de la bicicleta</caption>
-    <thead><tr><th scope="col">Tipo</th><th scope="col">Marca</th><th scope="col">Modelo</th>
-      <th scope="col">Serie</th><th scope="col">Instalado</th><th scope="col">Precio</th>
-      <th scope="col">Estado</th>{can(user.role, "items.void") && <th scope="col">Acciones</th>}
-    </tr></thead>
-    <tbody>{components.map((component) => <tr>
-      <td>{component.componentType}</td><td>{component.brand}</td><td>{component.model}</td>
-      <td>{component.serialNumber ?? "Sin serie"}</td><td>{component.installedAt}</td>
-      <td>{formatClp(component.priceClp)}</td>
-      <td>{component.replacedAt ? `Reemplazado el ${component.replacedAt}` : "Vigente"}</td>
-      {can(user.role, "items.void") && <td><form method="post" action={PATH}>
-        <input type="hidden" name="action" value="void" />
-        <input type="hidden" name="componentId" value={component.id} />
-        <button class="btn ghost" type="submit" aria-label={`Anular ${component.componentType} ${component.brand} ${component.model}`}>Anular</button>
-      </form></td>}
-    </tr>)}</tbody>
-  </table></div>
-  {components.length === 0 && <p>No hay componentes registrados para esta bicicleta.</p>}
-  <form method="post" action={PATH}>
-    <input type="hidden" name="action" value="install" />
-    <fieldset><legend>Instalar componente</legend><div class="fields">
-      <div class="field"><label for="component-type">Tipo</label>
-        <input id="component-type" name="componentType" type="text" required minlength="2" maxlength="60" value={value("componentType")} aria-invalid={invalid("componentType")} aria-describedby={invalid("componentType") ? "form-error" : undefined} />
-      </div>
-      <div class="field"><label for="component-brand">Marca</label>
-        <input id="component-brand" name="brand" type="text" required maxlength="60" value={value("brand")} aria-invalid={invalid("brand")} aria-describedby={invalid("brand") ? "form-error" : undefined} />
-      </div>
-      <div class="field"><label for="component-model">Modelo</label>
-        <input id="component-model" name="model" type="text" required maxlength="80" value={value("model")} aria-invalid={invalid("model")} aria-describedby={invalid("model") ? "form-error" : undefined} />
-      </div>
-      <div class="field"><label for="component-serial">Número de serie (opcional)</label>
-        <input id="component-serial" name="serialNumber" type="text" maxlength="80" value={value("serialNumber")} aria-invalid={invalid("serialNumber")} aria-describedby={invalid("serialNumber") ? "form-error" : undefined} />
-      </div>
-      <div class="field"><label for="installed-at">Fecha de instalación</label>
-        <input id="installed-at" name="installedAt" type="date" value={value("installedAt", localToday(now))} aria-invalid={invalid("installedAt")} aria-describedby={invalid("installedAt") ? "form-error" : undefined} />
-      </div>
-      <div class="field"><label for="part-line">Línea de repuesto</label>
-        <select id="part-line" name="workOrderItemId" aria-invalid={invalid("workOrderItemId")} aria-describedby={invalid("workOrderItemId") ? "form-error" : undefined}>
-          <option value="">Sin línea de repuesto</option>
-          {parts.map((part) => <option value={part.id} selected={part.id === value("workOrderItemId")}>{part.description} · {formatClp(part.unitPriceClp)}</option>)}
-        </select>
-      </div>
-      <div class="field"><label for="replaces-component">Reemplaza a</label>
-        <select id="replaces-component" name="replacesComponentId" aria-invalid={invalid("replacesComponentId")} aria-describedby={invalid("replacesComponentId") ? "form-error" : undefined}>
-          <option value="">No reemplaza otro componente</option>
-          {components.filter((component) => component.replacedAt === null).map((component) => <option value={component.id} selected={component.id === value("replacesComponentId")}>{component.componentType} · {component.brand} {component.model} · {component.installedAt}</option>)}
-        </select>
-      </div>
-    </div><button class="btn" type="submit">Instalar componente</button></fieldset>
-  </form>
+  <div class="stack">
+    <PageHeader title={`${number} · Componentes`} status={{ status: order.status, label: STATUS_LABELS[order.status as OrderStatus] }} />
+    <OrderTabs orderId={order.id} active="componentes" tabs={tabs} />
+    <Card><p>{bike.brand} {bike.model}</p></Card>
+    {notice && <p role="status">{notice}</p>}
+    {error && <p id="form-error" role="alert">{error}</p>}
+    <Card>
+      <div class="scroll-x"><table class="dense">
+        <caption>Componentes de la bicicleta</caption>
+        <thead><tr><th scope="col">Tipo</th><th scope="col">Marca</th><th scope="col">Modelo</th>
+          <th scope="col">Serie</th><th scope="col">Instalado</th><th scope="col">Precio</th>
+          <th scope="col">Estado</th>{can(user.role, "items.void") && <th scope="col">Acciones</th>}
+        </tr></thead>
+        <tbody>{components.map((component) => <tr>
+          <td>{component.componentType}</td><td>{component.brand}</td><td>{component.model}</td>
+          <td>{component.serialNumber ?? "Sin serie"}</td><td>{component.installedAt}</td>
+          <td class="mono">{formatClp(component.priceClp)}</td>
+          <td>{component.replacedAt ? `Reemplazado el ${component.replacedAt}` : "Vigente"}</td>
+          {can(user.role, "items.void") && <td><form method="post" action={PATH}>
+            <input type="hidden" name="action" value="void" />
+            <input type="hidden" name="componentId" value={component.id} />
+            <button class="btn ghost" type="submit" aria-label={`Anular ${component.componentType} ${component.brand} ${component.model}`}>Anular</button>
+          </form></td>}
+        </tr>)}</tbody>
+      </table></div>
+      {components.length === 0 && <p class="muted">No hay componentes registrados para esta bicicleta.</p>}
+    </Card>
+    <Card><form method="post" action={PATH}>
+      <input type="hidden" name="action" value="install" />
+      <fieldset><legend>Instalar componente</legend><div class="fields">
+        <div class="field"><label for="component-type">Tipo</label>
+          <input id="component-type" name="componentType" type="text" required minlength="2" maxlength="60" value={value("componentType")} aria-invalid={invalid("componentType")} aria-describedby={invalid("componentType") ? "form-error" : undefined} />
+        </div>
+        <div class="field"><label for="component-brand">Marca</label>
+          <input id="component-brand" name="brand" type="text" required maxlength="60" value={value("brand")} aria-invalid={invalid("brand")} aria-describedby={invalid("brand") ? "form-error" : undefined} />
+        </div>
+        <div class="field"><label for="component-model">Modelo</label>
+          <input id="component-model" name="model" type="text" required maxlength="80" value={value("model")} aria-invalid={invalid("model")} aria-describedby={invalid("model") ? "form-error" : undefined} />
+        </div>
+        <div class="field"><label for="component-serial">Número de serie (opcional)</label>
+          <input id="component-serial" name="serialNumber" type="text" maxlength="80" value={value("serialNumber")} aria-invalid={invalid("serialNumber")} aria-describedby={invalid("serialNumber") ? "form-error" : undefined} />
+        </div>
+        <div class="field"><label for="installed-at">Fecha de instalación</label>
+          <input id="installed-at" name="installedAt" type="date" value={value("installedAt", localToday(now))} aria-invalid={invalid("installedAt")} aria-describedby={invalid("installedAt") ? "form-error" : undefined} />
+        </div>
+        <div class="field"><label for="part-line">Línea de repuesto</label>
+          <select id="part-line" name="workOrderItemId" aria-invalid={invalid("workOrderItemId")} aria-describedby={invalid("workOrderItemId") ? "form-error" : undefined}>
+            <option value="">Sin línea de repuesto</option>
+            {parts.map((part) => <option value={part.id} selected={part.id === value("workOrderItemId")}>{part.description} · {formatClp(part.unitPriceClp)}</option>)}
+          </select>
+        </div>
+        <div class="field"><label for="replaces-component">Reemplaza a</label>
+          <select id="replaces-component" name="replacesComponentId" aria-invalid={invalid("replacesComponentId")} aria-describedby={invalid("replacesComponentId") ? "form-error" : undefined}>
+            <option value="">No reemplaza otro componente</option>
+            {components.filter((component) => component.replacedAt === null).map((component) => <option value={component.id} selected={component.id === value("replacesComponentId")}>{component.componentType} · {component.brand} {component.model} · {component.installedAt}</option>)}
+          </select>
+        </div>
+      </div><button class="btn" type="submit">Instalar componente</button></fieldset>
+    </form></Card>
+  </div>
 </TallerLayout>

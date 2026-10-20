@@ -1,7 +1,11 @@
 ---
 import { z } from "zod";
+import Card from "../../../../components/taller/Card.astro";
+import OrderTabs from "../../../../components/taller/OrderTabs.astro";
+import PageHeader from "../../../../components/taller/PageHeader.astro";
 import ReportView from "../../../../components/taller/ReportView.astro";
 import TallerLayout from "../../../../layouts/TallerLayout.astro";
+import { ORDER_TABS } from "../../../../lib/taller-tabs.ts";
 import { getSiteEnv } from "../../../../lib/env.ts";
 import { isAllowedOrigin } from "../../../../server/api/handlers.ts";
 import { loginRedirect, requireAdmin, SESSION_COOKIE } from "../../../../server/auth/admin-auth.ts";
@@ -18,6 +22,8 @@ import {
   reportFormSchema,
 } from "../../../../server/taller/reports.ts";
 import { orderDetail } from "../../../../server/taller/status.ts";
+import { STATUS_LABELS } from "../../../../server/taller/rules.ts";
+import type { OrderStatus } from "../../../../server/taller/rules.ts";
 
 export const prerender = false;
 const headers = { "cache-control": "no-store", "referrer-policy": "no-referrer" };
@@ -99,25 +105,28 @@ const fields = [
   { key: "recommendations", label: "Recomendaciones" },
   { key: "nextChecks", label: "Próximas revisiones" },
 ] as const;
+const { order } = detail;
+const tabs = ORDER_TABS.filter((tab) => can(user.role, tab.permission));
 ---
 
 <TallerLayout title={`${number} · Informe — Vector Bikes`} description="Informe final del servicio de la bicicleta." path="/taller/ordenes" user={user}>
-  <h1>{number} · Informe</h1>
-  <p><a class="btn ghost" href={`/taller/ordenes/${id.data}`}>Volver a la orden</a></p>
-  {error && <p id="form-error" role="alert">{error}</p>}
-  {link && <section aria-labelledby="share-title">
-    <h2 id="share-title">Enlace para el cliente</h2>
-    <p role="status">Copia este enlace ahora; se muestra solo una vez. Regenerar el informe invalida el enlace anterior.</p>
-    <div class="field"><label for="report-link">Enlace del informe</label><textarea id="report-link" readonly rows="3">{link}</textarea></div>
-    <p><a class="btn" href={whatsapp} target="_blank" rel="noopener noreferrer">Enviar por WhatsApp</a></p>
-  </section>}
-  <form method="post" action={Astro.url.pathname}>
-    <fieldset><legend>Informe final</legend><div class="fields">
-      {fields.map(({ key, label }) => <div class="field">
-        <label for={key}>{label}</label>
-        <textarea id={key} name={key} rows="4" maxlength="2000" aria-invalid={fieldErrors.has(key)} aria-describedby={fieldErrors.has(key) ? "form-error" : undefined}>{values[key]}</textarea>
-      </div>)}
-    </div><button class="btn" type="submit">{report ? "Regenerar informe" : "Generar informe"}</button></fieldset>
-  </form>
-  {report && <ReportView snapshot={report.snapshot} photos={photos} />}
+  <div class="stack">
+    <PageHeader title={`${number} · Informe`} status={{ status: order.status, label: STATUS_LABELS[order.status as OrderStatus] }} />
+    <OrderTabs orderId={order.id} active="informe" tabs={tabs} />
+    {error && <p id="form-error" role="alert">{error}</p>}
+    {link && <Card id="share-title" title="Enlace para el cliente">
+      <p role="status">Copia este enlace ahora; se muestra solo una vez. Regenerar el informe invalida el enlace anterior.</p>
+      <div class="field"><label for="report-link">Enlace del informe</label><textarea id="report-link" readonly rows="3">{link}</textarea></div>
+      <p><a class="btn" href={whatsapp} target="_blank" rel="noopener noreferrer">Enviar por WhatsApp</a></p>
+    </Card>}
+    <Card><form method="post" action={Astro.url.pathname}>
+      <fieldset><legend>Informe final</legend><div class="fields">
+        {fields.map(({ key, label }) => <div class="field">
+          <label for={key}>{label}</label>
+          <textarea id={key} name={key} rows="4" maxlength="2000" aria-invalid={fieldErrors.has(key)} aria-describedby={fieldErrors.has(key) ? "form-error" : undefined}>{values[key]}</textarea>
+        </div>)}
+      </div><button class="btn" type="submit">{report ? "Regenerar informe" : "Generar informe"}</button></fieldset>
+    </form></Card>
+    {report && <Card><ReportView snapshot={report.snapshot} photos={photos} /></Card>}
+  </div>
 </TallerLayout>

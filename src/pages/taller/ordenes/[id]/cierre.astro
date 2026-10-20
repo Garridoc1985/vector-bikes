@@ -1,8 +1,12 @@
 ---
 import { z } from "zod";
+import Card from "../../../../components/taller/Card.astro";
+import OrderTabs from "../../../../components/taller/OrderTabs.astro";
+import PageHeader from "../../../../components/taller/PageHeader.astro";
 import PhotoCapture from "../../../../components/taller/PhotoCapture.tsx";
 import SignaturePad from "../../../../components/taller/SignaturePad.tsx";
 import TallerLayout from "../../../../layouts/TallerLayout.astro";
+import { ORDER_TABS } from "../../../../lib/taller-tabs.ts";
 import { isAllowedOrigin } from "../../../../server/api/handlers.ts";
 import { loginRedirect, requireAdmin, SESSION_COOKIE } from "../../../../server/auth/admin-auth.ts";
 import { can, forbiddenResponse } from "../../../../server/auth/permissions.ts";
@@ -109,44 +113,46 @@ const missing = await receptionReadiness(db, order.id);
 const photos = (await listOrderPhotos(db, user, order.id)).filter(
   (photo) => photo.stage === "recepcion",
 );
+const tabs = ORDER_TABS.filter((tab) => can(user.role, tab.permission));
 ---
 
 <TallerLayout title={`${number} · Fotos y firma — Vector Bikes`} description="Completar las fotos y la firma de recepción." path="/taller/recepcion/nueva" user={user}>
-  <header>
-    <h1>{number}</h1>
-    <span class={`status status--${order.status}`}>{STATUS_LABELS[order.status as OrderStatus]}</span>
-    <h2>Cliente</h2>
-    <p>{customer.name}</p>
-    <h2>Bicicleta</h2>
-    <p>{bike.brand} {bike.model} · {BIKE_TYPE_LABELS[bike.bikeType as BikeType]}</p>
-    <a class="btn ghost" href={receptionUrl}>Volver a la recepción</a>
-  </header>
-  {errors.length > 0 && <div role="alert"><ul>{errors.map((message) => <li>{message}</li>)}</ul></div>}
-  <section aria-labelledby="readiness-heading">
-    <h2 id="readiness-heading">Preparación</h2>
-    <ul>
-      <li>Checklist: {missing.includes("checklist") ? "Pendiente" : "Completo"}</li>
-      <li>Fotos de recepción ({photos.length}): {missing.includes("fotos") ? "Pendientes" : "Completas"}</li>
-      <li>Fecha de entrega: {missing.includes("fecha") ? "Pendiente" : `Confirmada: ${order.estimatedDeliveryDate}`}</li>
-      <li>Firma del cliente: {missing.includes("firma") ? "Pendiente" : "Registrada"}</li>
-    </ul>
-  </section>
-  <section aria-labelledby="photos-heading">
-    <h2 id="photos-heading">Fotos de recepción</h2>
-    <div class="grid-photos">
-      {photos.map((photo, index) => <img src={photo.thumbUrl} alt={`Foto de recepción ${index + 1}`} />)}
-    </div>
-    <PhotoCapture client:load uploadUrl={`/taller/ordenes/${order.id}/fotos`} stage="recepcion" />
-  </section>
-  <form method="post" action={Astro.url.pathname}>
+  <div class="stack">
+    <PageHeader title={number} status={{ status: order.status, label: STATUS_LABELS[order.status as OrderStatus] }} />
+    <OrderTabs orderId={order.id} active="cierre" tabs={tabs} />
     <div class="fields">
-      <SignaturePad client:load name="firma" label="Firma del cliente" />
-      <div class="field">
-        <label for="signer-name">Nombre de quien firma</label>
-        <input id="signer-name" name="nombre" type="text" required minlength="2" maxlength="80" autocomplete="name" value={signedByName} aria-invalid={Boolean(nameError)} aria-describedby={nameError ? "signer-name-error" : undefined} />
-        {nameError && <p id="signer-name-error">{nameError}</p>}
-      </div>
+      <Card title="Cliente">
+        <p>{customer.name}</p>
+      </Card>
+      <Card title="Bicicleta">
+        <p>{bike.brand} {bike.model} · {BIKE_TYPE_LABELS[bike.bikeType as BikeType]}</p>
+      </Card>
     </div>
-    <button type="submit" class="btn">Finalizar recepción</button>
-  </form>
+    {errors.length > 0 && <div role="alert"><ul>{errors.map((message) => <li>{message}</li>)}</ul></div>}
+    <Card id="readiness-heading" title="Preparación">
+      <ul>
+        <li>Checklist: {missing.includes("checklist") ? "Pendiente" : "Completo"}</li>
+        <li>Fotos de recepción ({photos.length}): {missing.includes("fotos") ? "Pendientes" : "Completas"}</li>
+        <li>Fecha de entrega: {missing.includes("fecha") ? "Pendiente" : `Confirmada: ${order.estimatedDeliveryDate}`}</li>
+        <li>Firma del cliente: {missing.includes("firma") ? "Pendiente" : "Registrada"}</li>
+      </ul>
+    </Card>
+    <Card id="photos-heading" title="Fotos de recepción">
+      <div class="grid-photos">
+        {photos.map((photo, index) => <img src={photo.thumbUrl} alt={`Foto de recepción ${index + 1}`} />)}
+      </div>
+      <PhotoCapture client:load uploadUrl={`/taller/ordenes/${order.id}/fotos`} stage="recepcion" />
+    </Card>
+    <Card><form method="post" action={Astro.url.pathname}>
+      <div class="fields">
+        <SignaturePad client:load name="firma" label="Firma del cliente" />
+        <div class="field">
+          <label for="signer-name">Nombre de quien firma</label>
+          <input id="signer-name" name="nombre" type="text" required minlength="2" maxlength="80" autocomplete="name" value={signedByName} aria-invalid={Boolean(nameError)} aria-describedby={nameError ? "signer-name-error" : undefined} />
+          {nameError && <p id="signer-name-error">{nameError}</p>}
+        </div>
+      </div>
+      <button type="submit" class="btn">Finalizar recepción</button>
+    </form></Card>
+  </div>
 </TallerLayout>

@@ -1,7 +1,11 @@
 ---
 import { z } from "zod";
+import Card from "../../../../components/taller/Card.astro";
+import OrderTabs from "../../../../components/taller/OrderTabs.astro";
+import PageHeader from "../../../../components/taller/PageHeader.astro";
 import SignaturePad from "../../../../components/taller/SignaturePad.tsx";
 import TallerLayout from "../../../../layouts/TallerLayout.astro";
+import { ORDER_TABS } from "../../../../lib/taller-tabs.ts";
 import { isAllowedOrigin } from "../../../../server/api/handlers.ts";
 import { loginRedirect, requireAdmin, SESSION_COOKIE } from "../../../../server/auth/admin-auth.ts";
 import { can, forbiddenResponse } from "../../../../server/auth/permissions.ts";
@@ -160,70 +164,72 @@ const notice = Object.hasOwn(notices, done) ? notices[done] : undefined;
 function invalid(field: string) {
   return submitted.action === "record" && fieldErrors.has(field);
 }
+const tabs = ORDER_TABS.filter((tab) => can(user.role, tab.permission));
 ---
 
 <TallerLayout title={`${number} · Pagos y entrega — Vector Bikes`} description="Pagos y saldo de la orden de trabajo." path="/taller/ordenes" user={user}>
-  <h1>{number} · Pagos y entrega</h1>
-  <p><span class={`status status--${order.status}`}>{STATUS_LABELS[order.status as OrderStatus]}</span></p>
-  <p><a class="btn ghost" href={`/taller/ordenes/${order.id}`}>Volver a la orden</a></p>
-  {notice && <p role="status">{notice}</p>}
-  {error && <p id="form-error" role="alert">{error}</p>}
-  <section aria-labelledby="summary-title">
-    <h2 id="summary-title">Resumen de pagos</h2>
-    <dl><dt>Total</dt><dd>{formatClp(order.totalClp)}</dd>
-      <dt>Pagado</dt><dd>{formatClp(order.paidClp)}</dd>
-      <dt>Saldo</dt><dd>{formatClp(balance)}</dd></dl>
-  </section>
-  <div style="overflow-x:auto"><table class="dense">
-    <caption>Pagos vigentes</caption>
-    <thead><tr><th scope="col">Tipo de pago</th><th scope="col">Método</th>
-      <th scope="col">Monto</th><th scope="col">Acciones</th></tr></thead>
-    <tbody>{payments.map((payment) => <tr>
-      <td>{PAYMENT_KIND_LABELS[payment.kind]}</td><td>{PAYMENT_METHOD_LABELS[payment.method]}</td>
-      <td>{formatClp(payment.amountClp)}</td><td>
-        {order.status !== "entregada" && can(user.role, "payments.void")
-          ? <form method="post" action={PATH}>
-              <input type="hidden" name="action" value="void" />
-              <input type="hidden" name="paymentId" value={payment.id} />
-              <button class="btn ghost" type="submit" aria-label={`Anular ${PAYMENT_KIND_LABELS[payment.kind]} de ${formatClp(payment.amountClp)}`}>Anular</button>
-            </form> : <span>Sin acciones</span>}
-      </td></tr>)}</tbody>
-  </table></div>
-  {payments.length === 0 && <p>No hay pagos registrados.</p>}
-  {!editable && <p>Esta orden ya no admite nuevos pagos.</p>}
-  {editable && balance > 0 && <form method="post" action={PATH}>
-    <input type="hidden" name="action" value="record" />
-    <div class="fields">
-      <fieldset><legend>Tipo de pago</legend><div class="options">
-        {PAYMENT_KINDS.map((kind) => <label>
-          <input name="kind" type="radio" value={kind} required checked={kind === (submitted.action === "record" ? submitted.kind : "final")} aria-invalid={invalid("kind")} aria-describedby={invalid("kind") ? "form-error" : undefined} />
-          {PAYMENT_KIND_LABELS[kind]}</label>)}
-      </div></fieldset>
-      <fieldset><legend>Método</legend><div class="options">
-        {PAYMENT_METHODS.map((method) => <label>
-          <input name="method" type="radio" value={method} required checked={method === (submitted.action === "record" ? submitted.method : "transferencia")} aria-invalid={invalid("method")} aria-describedby={invalid("method") ? "form-error" : undefined} />
-          {PAYMENT_METHOD_LABELS[method]}</label>)}
-      </div></fieldset>
-      <div class="field"><label for="amountClp">Monto</label>
-        <input id="amountClp" name="amountClp" type="number" min="1" max={balance} step="1" required value={submitted.action === "record" ? submitted.amountClp : balance} aria-invalid={invalid("amountClp")} aria-describedby={invalid("amountClp") ? "form-error" : undefined} />
+  <div class="stack">
+    <PageHeader title={`${number} · Pagos y entrega`} status={{ status: order.status, label: STATUS_LABELS[order.status as OrderStatus] }} />
+    <OrderTabs orderId={order.id} active="entrega" tabs={tabs} />
+    {notice && <p role="status">{notice}</p>}
+    {error && <p id="form-error" role="alert">{error}</p>}
+    <Card id="summary-title" title="Resumen de pagos">
+      <dl class="data"><dt>Total</dt><dd class="mono">{formatClp(order.totalClp)}</dd>
+        <dt>Pagado</dt><dd class="mono">{formatClp(order.paidClp)}</dd>
+        <dt>Saldo</dt><dd class="mono">{formatClp(balance)}</dd></dl>
+    </Card>
+    <Card>
+      <div class="scroll-x"><table class="dense">
+        <caption>Pagos vigentes</caption>
+        <thead><tr><th scope="col">Tipo de pago</th><th scope="col">Método</th>
+          <th scope="col">Monto</th><th scope="col">Acciones</th></tr></thead>
+        <tbody>{payments.map((payment) => <tr>
+          <td>{PAYMENT_KIND_LABELS[payment.kind]}</td><td>{PAYMENT_METHOD_LABELS[payment.method]}</td>
+          <td class="mono">{formatClp(payment.amountClp)}</td><td>
+            {order.status !== "entregada" && can(user.role, "payments.void")
+              ? <form method="post" action={PATH}>
+                  <input type="hidden" name="action" value="void" />
+                  <input type="hidden" name="paymentId" value={payment.id} />
+                  <button class="btn ghost" type="submit" aria-label={`Anular ${PAYMENT_KIND_LABELS[payment.kind]} de ${formatClp(payment.amountClp)}`}>Anular</button>
+                </form> : <span class="muted">Sin acciones</span>}
+          </td></tr>)}</tbody>
+      </table></div>
+      {payments.length === 0 && <p class="muted">No hay pagos registrados.</p>}
+    </Card>
+    {!editable && <p class="muted">Esta orden ya no admite nuevos pagos.</p>}
+    {editable && balance > 0 && <Card><form method="post" action={PATH}>
+      <input type="hidden" name="action" value="record" />
+      <div class="fields">
+        <fieldset><legend>Tipo de pago</legend><div class="options">
+          {PAYMENT_KINDS.map((kind) => <label>
+            <input name="kind" type="radio" value={kind} required checked={kind === (submitted.action === "record" ? submitted.kind : "final")} aria-invalid={invalid("kind")} aria-describedby={invalid("kind") ? "form-error" : undefined} />
+            {PAYMENT_KIND_LABELS[kind]}</label>)}
+        </div></fieldset>
+        <fieldset><legend>Método</legend><div class="options">
+          {PAYMENT_METHODS.map((method) => <label>
+            <input name="method" type="radio" value={method} required checked={method === (submitted.action === "record" ? submitted.method : "transferencia")} aria-invalid={invalid("method")} aria-describedby={invalid("method") ? "form-error" : undefined} />
+            {PAYMENT_METHOD_LABELS[method]}</label>)}
+        </div></fieldset>
+        <div class="field"><label for="amountClp">Monto</label>
+          <input id="amountClp" name="amountClp" type="number" min="1" max={balance} step="1" required value={submitted.action === "record" ? submitted.amountClp : balance} aria-invalid={invalid("amountClp")} aria-describedby={invalid("amountClp") ? "form-error" : undefined} />
+        </div>
+        <button class="btn" type="submit">Registrar pago</button>
       </div>
-      <button class="btn" type="submit">Registrar pago</button>
-    </div>
-  </form>}
-  <section aria-labelledby="delivery-title">
-    <h2 id="delivery-title">Entrega y firma</h2>
-    {order.status === "entregada" ? <p>Bicicleta entregada.</p>
-      : order.status === "lista_para_retirar" && can(user.role, "delivery.complete")
-        ? <form method="post" action={PATH}>
-            <input type="hidden" name="action" value="deliver" />
-            <div class="fields">
-              <SignaturePad client:load name="firma" label="Firma de quien retira" />
-              <div class="field"><label for="nombre">Nombre de quien retira</label>
-                <input id="nombre" name="nombre" type="text" required minlength="2" maxlength="80" autocomplete="name" value={submitted.action === "deliver" ? submitted.nombre : customer.name} aria-invalid={fieldErrors.has("nombre")} aria-describedby={fieldErrors.has("nombre") ? "form-error" : undefined} />
+    </form></Card>}
+    <Card id="delivery-title" title="Entrega y firma">
+      {order.status === "entregada" ? <p>Bicicleta entregada.</p>
+        : order.status === "lista_para_retirar" && can(user.role, "delivery.complete")
+          ? <form method="post" action={PATH}>
+              <input type="hidden" name="action" value="deliver" />
+              <div class="fields">
+                <SignaturePad client:load name="firma" label="Firma de quien retira" />
+                <div class="field"><label for="nombre">Nombre de quien retira</label>
+                  <input id="nombre" name="nombre" type="text" required minlength="2" maxlength="80" autocomplete="name" value={submitted.action === "deliver" ? submitted.nombre : customer.name} aria-invalid={fieldErrors.has("nombre")} aria-describedby={fieldErrors.has("nombre") ? "form-error" : undefined} />
+                </div>
+                <button class="btn" type="submit">Entregar bicicleta</button>
               </div>
-              <button class="btn" type="submit">Entregar bicicleta</button>
-            </div>
-          </form>
-        : <p>La entrega estará disponible cuando la orden esté Lista para retirar.</p>}
-  </section>
+            </form>
+          : <p class="muted">La entrega estará disponible cuando la orden esté Lista para retirar.</p>}
+    </Card>
+  </div>
 </TallerLayout>
