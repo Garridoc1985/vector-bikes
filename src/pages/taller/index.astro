@@ -1,4 +1,6 @@
 ---
+import Card from "../../components/taller/Card.astro";
+import PageHeader from "../../components/taller/PageHeader.astro";
 import TallerLayout from "../../layouts/TallerLayout.astro";
 import { getSiteEnv } from "../../lib/env.ts";
 import { loginRedirect, requireAdmin, SESSION_COOKIE } from "../../server/auth/admin-auth.ts";
@@ -95,18 +97,14 @@ try {
 
 <TallerLayout title="Taller — Vector Bikes" description="Área interna del taller." path="/taller" user={user}>
   <div class="dash">
-    <header class="card dash-hello">
-      <div>
-        <h1>Taller</h1>
-        <p class="dash-greet">Hola, {name}</p>
-      </div>
+    <PageHeader title="Taller" subtitle={`Hola, ${name}`}>
       {bookingUrl && (
-        <p class="dash-share">
+        <p class="dash-share" slot="actions">
           <span class="label">Reservas en línea</span>
           <span class="mono dash-url">{bookingUrl}</span>
         </p>
       )}
-    </header>
+    </PageHeader>
 
     {actions.length > 0 && (
       <nav class="dash-actions" aria-label="Acciones">
@@ -167,8 +165,7 @@ try {
       </div>
 
       <aside class="dash-side" aria-label="Resumen">
-        <section class="card dash-card" aria-labelledby="dashboard-counts">
-          <h2 id="dashboard-counts">Órdenes por estado</h2>
+        <Card id="dashboard-counts" title="Órdenes por estado">
           <table class="dense">
             <tbody>
               {sections.map((section) => (
@@ -179,18 +176,16 @@ try {
               ))}
             </tbody>
           </table>
-        </section>
+        </Card>
 
         {income !== null && (
-          <section class="card dash-card" aria-labelledby="dashboard-incomeToday">
-            <h2 id="dashboard-incomeToday">Ingresos de hoy</h2>
+          <Card id="dashboard-incomeToday" title="Ingresos de hoy">
             <p class="dash-amount mono">{formatClp(income)}</p>
-          </section>
+          </Card>
         )}
 
         {bookings && (
-          <section class="card dash-card" aria-labelledby={`dashboard-${bookings.id}`}>
-            <h2 id={`dashboard-${bookings.id}`}>{bookings.title}</h2>
+          <Card id={`dashboard-${bookings.id}`} title={bookings.title}>
             {bookings.bookings.length === 0 ? (
               <p class="dash-empty">Sin reservas</p>
             ) : (
@@ -205,12 +200,11 @@ try {
                 ))}
               </ul>
             )}
-          </section>
+          </Card>
         )}
 
         {mechanics && (
-          <section class="card dash-card" aria-labelledby="dashboard-loadByMechanic">
-            <h2 id="dashboard-loadByMechanic">Carga por mecánico</h2>
+          <Card id="dashboard-loadByMechanic" title="Carga por mecánico">
             {mechanics.length === 0 ? (
               <p class="dash-empty">Sin mecánicos activos</p>
             ) : (
@@ -233,7 +227,7 @@ try {
                 </tbody>
               </table>
             )}
-          </section>
+          </Card>
         )}
       </aside>
     </div>
@@ -245,17 +239,6 @@ try {
   .taller .dash {
     display: grid;
     gap: 24px;
-  }
-  .taller .dash-hello {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: start;
-    justify-content: space-between;
-    gap: 16px;
-  }
-  .taller .dash-greet {
-    margin-block-start: 8px;
-    color: var(--ink-2);
   }
   .taller .dash-share {
     display: grid;
@@ -349,13 +332,6 @@ try {
     border: 1px solid var(--field-border);
     border-radius: 2px;
     text-decoration: none;
-  }
-  .taller .dash-card {
-    display: grid;
-    gap: 12px;
-  }
-  .taller .dash-card h2 {
-    font-size: 1.05rem;
   }
   .taller .dash-amount {
     font-size: 1.3rem;
