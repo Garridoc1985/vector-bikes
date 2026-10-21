@@ -6,7 +6,12 @@ import { and, eq } from "drizzle-orm";
 import sharp from "sharp";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionUser } from "../../src/server/auth/admin-auth.ts";
-import { intakeChecks, orderPhotos, workOrders } from "../../src/server/db/schema-orders.ts";
+import {
+  intakeChecks,
+  orderPhotos,
+  workOrderItems,
+  workOrders,
+} from "../../src/server/db/schema-orders.ts";
 import { auditLog, bikes, customers } from "../../src/server/db/schema-taller.ts";
 import { branches, users } from "../../src/server/db/schema.ts";
 import { consoleOutbox } from "../../src/server/email/transport.ts";
@@ -29,19 +34,22 @@ let storage: ObjectStorage;
 let dir: string;
 let dataUrl: string;
 
-async function createActor(branchId: string): Promise<SessionUser> {
+async function createActor(
+  branchId: string,
+  role: SessionUser["role"] = "owner",
+): Promise<SessionUser> {
   const [user] = await test.db
     .insert(users)
     .values({
       branchId,
-      role: "owner",
+      role,
       email: `${randomUUID()}@example.test`,
-      name: "Dueña",
+      name: role === "owner" ? "Dueña" : "Mecánico",
       passwordHash: "hash-de-prueba",
     })
     .returning();
   if (!user) throw new Error("Falta el usuario de prueba.");
-  return { id: user.id, branchId, role: "owner", email: user.email, name: user.name };
+  return { id: user.id, branchId, role, email: user.email, name: user.name };
 }
 
 async function createOrder(email: string | null, number = 1) {
@@ -201,6 +209,39 @@ describe("aviso al cliente cuando se finaliza la recepción", () => {
     expect(again.ok).toBe(false);
     expect(consoleOutbox).toHaveLength(1);
     expect(await receivedAudits()).toHaveLength(1);
+  });
+
+  it("si la finaliza un mecánico, el correo igual trae las líneas y el total", async () => {
+    // `listItems` pasa por `canAccessOrder`. Una orden sin asignar en `recibida`
+    // le sigue siendo accesible al mecánico que la recibió; si alguien saca
+    // "recibida" de MECHANIC_UNASSIGNED_ACCESS_STATUSES, el correo perdería las
+    // líneas en silencio y esta prueba lo caza.
+    await ready();
+    await test.db.insert(workOrderItems).values({
+      branchId: owner.branchId,
+      workOrderId: orderId,
+      kind: "servicio",
+      origin: "inicial",
+      description: "Ajuste de frenos",
+      quantity: 2,
+      unitPriceClp: 9000,
+      createdBy: owner.id,
+    });
+    const mechanic = await createActor(owner.branchId, "mechanic");
+
+    const result = await finalizeReception(
+      test.db,
+      storage,
+      mechanic,
+      { orderId, signatureDataUrl: dataUrl, signedByName: SIGNER },
+      NOW,
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(consoleOutbox).toHaveLength(1);
+    expect(consoleOutbox[0]?.text).toContain("Ajuste de frenos");
+    expect(consoleOutbox[0]?.text).toContain("$18.000");
+    expect(consoleOutbox[0]?.text).not.toContain("Te enviaremos el presupuesto");
   });
 
   it("la auditoría no guarda datos personales", async () => {
