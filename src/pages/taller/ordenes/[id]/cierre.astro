@@ -163,7 +163,7 @@ const receptionDate = receivedAt
     </Card>
     {order.status === "reservada" ? <Card title="Firma del cliente"><form method="post" action={Astro.url.pathname}>
       <div class="fields">
-        <SignaturePad client:load name="firma" label="Firma del cliente" />
+        <div class="full"><SignaturePad client:load name="firma" label="Firma del cliente" /></div>
         <div class="field">
           <label for="signer-name">Nombre de quien firma</label>
           <input id="signer-name" name="nombre" type="text" required minlength="2" maxlength="80" autocomplete="name" value={signedByName} aria-invalid={Boolean(nameError)} aria-describedby={nameError ? "signer-name-error" : undefined} />

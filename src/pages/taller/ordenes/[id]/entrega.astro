@@ -222,7 +222,7 @@ const tabs = ORDER_TABS.filter((tab) => can(user.role, tab.permission));
           ? <form method="post" action={PATH}>
               <input type="hidden" name="action" value="deliver" />
               <div class="fields">
-                <SignaturePad client:load name="firma" label="Firma de quien retira" />
+                <div class="full"><SignaturePad client:load name="firma" label="Firma de quien retira" /></div>
                 <div class="field"><label for="nombre">Nombre de quien retira</label>
                   <input id="nombre" name="nombre" type="text" required minlength="2" maxlength="80" autocomplete="name" value={submitted.action === "deliver" ? submitted.nombre : customer.name} aria-invalid={fieldErrors.has("nombre")} aria-describedby={fieldErrors.has("nombre") ? "form-error" : undefined} />
                 </div>
