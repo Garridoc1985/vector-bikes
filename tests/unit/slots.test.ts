@@ -66,6 +66,23 @@ describe("computeDay", () => {
     expect(day.blocks).toEqual([]);
   });
 
+  it("marca también los feriados de 2027", () => {
+    // Cada caso necesita su propio `now`: fuera del horizonte de 30 días el día sale "closed"
+    // antes de mirar el feriado.
+    const junio = { now: new Date("2027-06-10T19:04:00.000Z") };
+    // El 29 de junio cae martes y la ley 19.668 corre el feriado al lunes 28: copiar la fecha
+    // fija del año anterior abriría el taller un feriado y lo cerraría un día hábil.
+    const trasladado = computeDay(dayInput("2027-06-28", "taller", junio));
+    expect(trasladado.status).toBe("holiday");
+    expect(trasladado.holidayName).toBe("San Pedro y San Pablo");
+    expect(computeDay(dayInput("2027-06-29", "taller", junio)).status).not.toBe("holiday");
+
+    const septiembre = { now: new Date("2027-09-01T19:04:00.000Z") };
+    expect(computeDay(dayInput("2027-09-17", "taller", septiembre)).holidayName).toBe(
+      "Feriado adicional de Fiestas Patrias",
+    );
+  });
+
   it("marca late los bloques dentro de las 2 horas de antelación", () => {
     const day = computeDay(dayInput("2026-09-16", "taller"));
     for (const start of ["15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00"]) {
@@ -136,7 +153,8 @@ describe("checkStart", () => {
 
 describe("feriados", () => {
   it("avisa del año que falta dentro del horizonte", () => {
-    expect(missingHolidayYears("2026-12-10", 30)).toEqual(["2027"]);
+    expect(missingHolidayYears("2027-12-10", 30)).toEqual(["2028"]);
+    expect(missingHolidayYears("2026-12-10", 30)).toEqual([]);
     expect(missingHolidayYears("2026-09-16", 30)).toEqual([]);
   });
 });

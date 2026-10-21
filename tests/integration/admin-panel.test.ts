@@ -280,7 +280,8 @@ describe("panel admin", () => {
 
 describe("advertencia de feriados", () => {
   it("avisa cuando el horizonte llega a un año sin feriados", () => {
-    expect(holidayWarning(new Date("2026-12-10T15:00:00.000Z"))).toContain("2027");
+    expect(holidayWarning(new Date("2027-12-10T15:00:00.000Z"))).toContain("2028");
+    expect(holidayWarning(new Date("2026-12-10T15:00:00.000Z"))).toBeNull();
     expect(holidayWarning(new Date("2026-09-16T15:00:00.000Z"))).toBeNull();
   });
 });
