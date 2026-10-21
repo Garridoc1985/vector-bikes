@@ -29,6 +29,7 @@ export type AuditAction =
   | "qc.approved"
   | "qc.rejected"
   | "notify.ready_for_pickup"
+  | "notify.received"
   | "payment.recorded"
   | "payment.voided"
   | "component.installed"

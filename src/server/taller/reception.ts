@@ -1,15 +1,22 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
+import { getEmailEnv } from "../../lib/env.ts";
+import { log } from "../../lib/log.ts";
 import type { SessionUser } from "../auth/admin-auth.ts";
 import { can } from "../auth/permissions.ts";
 import type { AppDb } from "../db/client.ts";
 import { orderPhotos, orderSignatures, workOrders } from "../db/schema-orders.ts";
+import { auditLog, bikes, customers } from "../db/schema-taller.ts";
+import type { NotifyDeps } from "../email/notifications.ts";
+import { receivedBikeEmail } from "../email/templates.ts";
+import { createTransport } from "../email/transport.ts";
 import { isStorageKey } from "../storage/storage.ts";
 import type { ObjectStorage } from "../storage/storage.ts";
 import { recordAudit } from "./audit.ts";
-import { isChecklistComplete } from "./intake.ts";
-import { getOrderHeader, recordStatusChange } from "./orders.ts";
+import { isChecklistComplete, listAccessories } from "./intake.ts";
+import { listItems } from "./items.ts";
+import { formatOrderNumber, getOrderHeader, recordStatusChange } from "./orders.ts";
 import { canAccessOrder } from "./status.ts";
 
 export const MAX_SIGNATURE_BYTES = 2 * 1024 * 1024;
@@ -220,12 +227,104 @@ async function commitReception(
   });
 }
 
+async function receivedNotificationOrder(db: AppDb, actor: SessionUser, orderId: string) {
+  const [order] = await db
+    .select({
+      number: workOrders.number,
+      requestedService: workOrders.requestedService,
+      estimatedDeliveryDate: workOrders.estimatedDeliveryDate,
+      warrantyOfOrderId: workOrders.warrantyOfOrderId,
+      customerName: customers.name,
+      email: customers.email,
+      brand: bikes.brand,
+      model: bikes.model,
+    })
+    .from(workOrders)
+    .innerJoin(
+      customers,
+      and(eq(customers.id, workOrders.customerId), eq(customers.branchId, actor.branchId)),
+    )
+    .innerJoin(bikes, and(eq(bikes.id, workOrders.bikeId), eq(bikes.branchId, actor.branchId)))
+    .where(
+      and(
+        eq(workOrders.branchId, actor.branchId),
+        eq(workOrders.id, orderId),
+        isNull(workOrders.voidedAt),
+      ),
+    );
+  return order;
+}
+
+async function warrantyOrderNumber(db: AppDb, actor: SessionUser, orderId: string | null) {
+  if (orderId === null) return null;
+  const [original] = await db
+    .select({ number: workOrders.number })
+    .from(workOrders)
+    .where(and(eq(workOrders.branchId, actor.branchId), eq(workOrders.id, orderId)));
+  return original ? formatOrderNumber(original.number) : null;
+}
+
+async function hasReceivedNotification(db: AppDb, actor: SessionUser, orderId: string) {
+  const [sent] = await db
+    .select({ id: auditLog.id })
+    .from(auditLog)
+    .where(
+      and(
+        eq(auditLog.branchId, actor.branchId),
+        eq(auditLog.action, "notify.received"),
+        eq(auditLog.entityId, orderId),
+      ),
+    )
+    .limit(1);
+  return Boolean(sent);
+}
+
+/** Post-commit: un fallo del aviso nunca cambia el resultado de la recepción. */
+async function notifyReceived(
+  db: AppDb,
+  actor: SessionUser,
+  orderId: string,
+  now: Date,
+  deps: NotifyDeps,
+) {
+  try {
+    const order = await receivedNotificationOrder(db, actor, orderId);
+    if (!order || order.email === null) return;
+    if (await hasReceivedNotification(db, actor, orderId)) return;
+    const email = receivedBikeEmail({
+      ...order,
+      orderNumber: formatOrderNumber(order.number),
+      bike: `${order.brand} ${order.model}`.trim(),
+      items: await listItems(db, actor, orderId),
+      accessories: (await listAccessories(db, actor, orderId)).map((item) => item.description),
+      warrantyOfNumber: await warrantyOrderNumber(db, actor, order.warrantyOfOrderId),
+    });
+    const transport = deps.transport ?? createTransport(deps.env ?? getEmailEnv());
+    await transport.send({ to: order.email, ...email });
+    await recordAudit(
+      db,
+      {
+        branchId: actor.branchId,
+        actorUserId: actor.id,
+        action: "notify.received",
+        entity: "work_order",
+        entityId: orderId,
+        details: { sent: true },
+      },
+      now,
+    );
+  } catch {
+    log.error("email.failed", { kind: "received", orderId });
+  }
+}
+
 export async function finalizeReception(
   db: AppDb,
   storage: ObjectStorage,
   actor: SessionUser,
   input: ReceptionInput,
   now: Date,
+  deps: NotifyDeps = {},
 ) {
   if (!can(actor.role, "reception.perform")) return { ok: false, code: "forbidden" } as const;
   const parsed = receptionInputSchema.safeParse(input);
@@ -244,11 +343,23 @@ export async function finalizeReception(
   const name = signerNameSchema.safeParse(parsed.data.signedByName);
   if (!name.success) return { ok: false, code: "validation_error" } as const;
   const key = await uploadSignature(storage, parsed.data.orderId, "recepcion", bytes);
+  // El `catch` compensa la escritura: solo cubre el commit. El aviso va fuera,
+  // para que un fallo del correo no pueda borrar la firma de una recepción ya
+  // confirmada.
+  let result: Awaited<ReturnType<typeof commitReception>>;
   try {
-    return await commitReception(db, actor, { ...parsed.data, signedByName: name.data }, key, now);
+    result = await commitReception(
+      db,
+      actor,
+      { ...parsed.data, signedByName: name.data },
+      key,
+      now,
+    );
   } catch (error) {
     await storage.delete(key);
     if (error instanceof ReceptionWriteError) return { ok: false, code: error.code } as const;
     throw error;
   }
+  if (result.ok) await notifyReceived(db, actor, parsed.data.orderId, now, deps);
+  return result;
 }

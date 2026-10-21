@@ -81,6 +81,8 @@ La recepción la puede hacer cualquier rol, incluido el mecánico. El mecánico 
 5. Pulsa **Continuar a fotos y firma**. Toma al menos una foto de recepción y espera a que termine de subir. Pide la firma del cliente en la tablet y escribe el nombre de quien firma.
 6. Pulsa **Finalizar recepción**. Solo se completa con checklist, foto, fecha confirmada y firma; la orden queda **Recibida**. Si faltan datos, la pantalla los indica.
 
+Al finalizar la recepción, el cliente recibe un correo con el resumen si tiene correo registrado.
+
 ### Etiqueta y trabajo
 
 Desde el detalle de la orden, abre **Etiqueta** y pulsa **Imprimir**. Selecciona la impresora de etiquetas con papel de **62 mm**, sin márgenes. La etiqueta lleva el número de orden, nombre del cliente, entrega estimada y QR; el QR abre la orden interna y requiere sesión. Haz una impresión de prueba para revisar el tamaño y la lectura antes de usarla en una bici.

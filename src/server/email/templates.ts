@@ -13,6 +13,17 @@ export type ReadyForPickup = {
   paidClp: number;
 };
 
+export type ReceivedBike = {
+  orderNumber: string;
+  customerName: string;
+  bike: string;
+  requestedService: string;
+  items: { description: string; quantity: number; unitPriceClp: number }[];
+  accessories: string[];
+  estimatedDeliveryDate: string | null;
+  warrantyOfNumber: string | null;
+};
+
 type Row = readonly [label: string, value: string];
 
 /** Contenido de un correo como datos: `render` escapa todo antes de armar el HTML. */
@@ -206,6 +217,44 @@ function receptionHours(): string[] {
 
 function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+/** Resumen al cliente después de finalizar la recepción, sin enlaces ni datos internos. */
+export function receivedBikeEmail(order: ReceivedBike): RenderedEmail {
+  const firstName = order.customerName.trim().split(/\s+/)[0] ?? "";
+  const rows: Row[] = [
+    ["Orden", order.orderNumber],
+    ["Bicicleta", order.bike],
+    ["Servicio solicitado", order.requestedService],
+  ];
+  if (order.items.length > 0) {
+    for (const item of order.items) {
+      rows.push([item.description, `${item.quantity} × ${formatClp(item.unitPriceClp)}`]);
+    }
+    rows.push([
+      "Total cotizado",
+      formatClp(order.items.reduce((total, item) => total + item.quantity * item.unitPriceClp, 0)),
+    ]);
+  }
+  if (order.accessories.length > 0) rows.push(["Accesorios", order.accessories.join(", ")]);
+  if (order.estimatedDeliveryDate !== null) {
+    const date = DateTime.fromISO(order.estimatedDeliveryDate, { zone: TIMEZONE })
+      .setLocale("es-CL")
+      .toFormat("d 'de' LLLL 'de' yyyy");
+    rows.push(["Entrega estimada", date]);
+  }
+  const notes = [];
+  if (order.items.length === 0) notes.push("Te enviaremos el presupuesto después del diagnóstico.");
+  if (order.warrantyOfNumber !== null) notes.push(`Orden de garantía de ${order.warrantyOfNumber}`);
+  notes.push(
+    "Si encontramos algo que no estaba en lo que pediste, te contactamos antes de hacerlo.",
+  );
+  return render(`Recibimos tu bicicleta · ${order.orderNumber} · ${SITE.name}`, {
+    heading: "Recibimos tu bicicleta",
+    intro: [`Hola ${firstName},`, "Tu bicicleta quedó registrada en el taller."],
+    rows,
+    notes,
+  });
 }
 
 /** Aviso al cliente después de aprobar el control de calidad, sin enlaces. */
