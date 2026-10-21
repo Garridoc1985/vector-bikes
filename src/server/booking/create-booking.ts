@@ -1,12 +1,7 @@
-import { and, eq, gt, inArray, like, ne, or, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, like, or, sql } from "drizzle-orm";
 import { type AppDb, isUniqueViolation } from "../db/client.ts";
-import {
-  type Booking,
-  blockedPeriods,
-  bookingBlocks,
-  bookingDays,
-  bookings,
-} from "../db/schema.ts";
+import { type Booking, bookingBlocks, bookingDays, bookings } from "../db/schema.ts";
+import { readDay } from "./day-state.ts";
 import { PICKUP_FEE_CLP } from "./rules.ts";
 import type { BookingMode } from "./rules.ts";
 import { checkStart } from "./slots.ts";
@@ -45,31 +40,6 @@ async function nextCode(tx: Tx, serviceDate: string, start: string): Promise<str
     .where(or(eq(bookings.code, base), like(bookings.code, `${base}-%`)));
   const n = Number(row?.n ?? 0);
   return n === 0 ? base : `${base}-${n + 1}`;
-}
-
-/** Estado de la fecha leído dentro de la transacción, ya con el lock tomado. */
-async function readDay(tx: Tx, serviceDate: string) {
-  const activeBlocks = await tx
-    .select({ blockStart: bookingBlocks.blockStart })
-    .from(bookingBlocks)
-    .where(and(eq(bookingBlocks.serviceDate, serviceDate), eq(bookingBlocks.isActive, true)));
-  const blocked = await tx
-    .select({ startTime: blockedPeriods.startTime, endTime: blockedPeriods.endTime })
-    .from(blockedPeriods)
-    .where(eq(blockedPeriods.serviceDate, serviceDate));
-  const [used] = await tx
-    .select({ n: sql<number>`count(*)` })
-    .from(bookings)
-    .where(and(eq(bookings.serviceDate, serviceDate), ne(bookings.status, "cancelled")));
-
-  return {
-    activeBlockStarts: activeBlocks.map((row) => row.blockStart.slice(0, 5)),
-    blocked: blocked.map((row) => ({
-      startTime: row.startTime === null ? null : row.startTime.slice(0, 5),
-      endTime: row.endTime === null ? null : row.endTime.slice(0, 5),
-    })),
-    usedCount: Number(used?.n ?? 0),
-  };
 }
 
 async function insertBooking(
