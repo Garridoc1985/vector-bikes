@@ -34,8 +34,27 @@ export const priceFormSchema = z.object({
     .pipe(z.number().int().min(0).max(2147483647)),
 });
 
+const optionalPrice = z.preprocess((value) => {
+  if (value == null || (typeof value === "string" && value.trim() === "")) return null;
+  if (typeof value !== "string") return value;
+  const amount = value.replace(/[$\s]/g, "");
+  if (!/^(?:\d+|\d{1,3}(?:\.\d{3})+)$/.test(amount)) return value;
+  return Number(amount.replace(/\./g, ""));
+}, z.number().int().min(0).max(2147483647).nullable());
+export const pricesFormSchema = z.object({
+  serviceId: z.uuid(),
+  prices: z.object({
+    mtb: optionalPrice,
+    ruta: optionalPrice,
+    gravel: optionalPrice,
+    urbana: optionalPrice,
+    ebike: optionalPrice,
+  }),
+});
+
 type ServiceInput = z.infer<typeof serviceFormSchema>;
 type PriceInput = z.infer<typeof priceFormSchema>;
+type PricesInput = z.infer<typeof pricesFormSchema>;
 type Service = typeof services.$inferSelect;
 type CatalogResult =
   | { ok: true; serviceId: string }
@@ -136,6 +155,7 @@ export async function createService(
   actor: SessionUser,
   input: ServiceInput,
   now: Date,
+  prices?: Record<BikeType, number | null>,
 ): Promise<CatalogResult> {
   if (!can(actor.role, "catalog.edit")) return { ok: false, code: "forbidden" };
   try {
@@ -158,6 +178,7 @@ export async function createService(
         { serviceId: service.id, fields: [...SERVICE_FIELDS] },
         now,
       );
+      if (prices) await writeServicePrices(tx, actor, { serviceId: service.id, prices }, now);
       return { ok: true, serviceId: service.id };
     });
   } catch (error) {
@@ -255,6 +276,43 @@ export async function setServicePrice(
       },
       now,
     );
+    return { ok: true, serviceId: input.serviceId };
+  });
+}
+
+async function writeServicePrices(db: AppDb, actor: SessionUser, input: PricesInput, now: Date) {
+  const rows = await db.select().from(servicePrices).where(priceScope(actor, input.serviceId));
+  for (const bikeType of BIKE_TYPES) {
+    const before = rows.find((row) => row.bikeType === bikeType)?.priceClp ?? null;
+    const after = input.prices[bikeType];
+    if (before === after) continue;
+    if (after === null) {
+      await db.delete(servicePrices).where(priceScope(actor, input.serviceId, bikeType));
+    } else {
+      await upsertPrice(db, actor, { serviceId: input.serviceId, bikeType, priceClp: after }, now);
+    }
+    await auditCatalog(
+      db,
+      actor,
+      input.serviceId,
+      "catalog.price_changed",
+      { serviceId: input.serviceId, bikeType, before, after },
+      now,
+    );
+  }
+}
+
+export async function setServicePrices(
+  db: AppDb,
+  actor: SessionUser,
+  input: PricesInput,
+  now: Date,
+): Promise<CatalogResult> {
+  if (!can(actor.role, "catalog.edit")) return { ok: false, code: "forbidden" };
+  return db.transaction(async (tx) => {
+    const service = await lockService(tx, actor, input.serviceId);
+    if (!service) return { ok: false, code: "not_found" };
+    await writeServicePrices(tx, actor, input, now);
     return { ok: true, serviceId: input.serviceId };
   });
 }

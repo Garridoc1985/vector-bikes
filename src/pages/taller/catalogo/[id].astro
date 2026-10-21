@@ -11,8 +11,10 @@ import { formatClp } from "../../../server/email/templates.ts";
 import {
   getService,
   priceFormSchema,
+  pricesFormSchema,
   serviceFormSchema,
   setServicePrice,
+  setServicePrices,
   updateService,
 } from "../../../server/taller/catalog.ts";
 import { BIKE_TYPES, BIKE_TYPE_LABELS } from "../../../server/taller/rules.ts";
@@ -52,6 +54,7 @@ if (!service)
 const formSchema = z.discriminatedUnion("accion", [
   serviceFormSchema.extend({ accion: z.literal("servicio") }),
   priceFormSchema.extend({ accion: z.literal("precio") }),
+  pricesFormSchema.extend({ accion: z.literal("precios") }),
 ]);
 const textFields = [
   { key: "description", label: "Descripción" },
@@ -67,9 +70,9 @@ const fieldMessages: Record<string, string> = {
   aftercare: "Las recomendaciones deben tener como máximo 1000 caracteres.",
 };
 let error = "";
-let failedAction = "";
-let failedBike = "";
-let failedPrice = "";
+let priceValues: Record<string, string> = Object.fromEntries(
+  BIKE_TYPES.map((type) => [type, String(service.prices[type] ?? "")]),
+);
 let values: Record<string, string> = Object.fromEntries(
   ["name", "estimatedMinutes", ...textFields.map((field) => field.key)].map((key) => [
     key,
@@ -82,16 +85,23 @@ const fieldErrors: Record<string, string> = {};
 if (Astro.request.method === "POST") {
   const form = await Astro.request.formData();
   const raw = Object.fromEntries([...form].map(([key, value]) => [key, String(value)]));
-  failedAction = raw.accion ?? "";
-  failedBike = raw.bikeType ?? "";
-  failedPrice = raw.priceClp ?? "";
-  if (failedAction === "servicio") {
+  if (raw.accion === "precios") {
+    priceValues = Object.fromEntries(BIKE_TYPES.map((type) => [type, raw[`precio_${type}`] ?? ""]));
+  } else if (
+    raw.accion === "precio" &&
+    raw.bikeType &&
+    BIKE_TYPES.some((type) => type === raw.bikeType)
+  ) {
+    priceValues[raw.bikeType] = raw.priceClp ?? "";
+  }
+  if (raw.accion === "servicio") {
     values = raw;
     isActive = raw.isActive === "1";
   }
   const parsed = formSchema.safeParse({
     ...raw,
     serviceId: id.data,
+    prices: priceValues,
     isActive: raw.isActive === "1",
   });
   if (!parsed.success) {
@@ -99,13 +109,20 @@ if (Astro.request.method === "POST") {
     error = "Revisa los datos del formulario.";
     for (const issue of parsed.error.issues) {
       const field = String(issue.path[0]);
-      fieldErrors[field] = fieldMessages[field] ?? "Revisa este dato.";
+      if (field === "prices" || field === "priceClp") {
+        const type = field === "prices" ? String(issue.path[1]) : raw.bikeType;
+        fieldErrors[`price-${type}`] = fieldMessages.priceClp ?? "Revisa este dato.";
+      } else {
+        fieldErrors[field] = fieldMessages[field] ?? "Revisa este dato.";
+      }
     }
   } else {
     const result =
       parsed.data.accion === "servicio"
         ? await updateService(db, user, id.data, parsed.data, now)
-        : await setServicePrice(db, user, parsed.data, now);
+        : parsed.data.accion === "precios"
+          ? await setServicePrices(db, user, parsed.data, now)
+          : await setServicePrice(db, user, parsed.data, now);
     if (result.ok)
       return new Response(null, {
         status: 303,
@@ -126,6 +143,7 @@ if (Astro.request.method === "POST") {
 const notices: Record<string, string> = {
   servicio: "Servicio actualizado.",
   precio: "Precio actualizado.",
+  precios: "Precios guardados.",
 };
 const notice = notices[Astro.url.searchParams.get("hecho") ?? ""];
 ---
@@ -175,33 +193,57 @@ const notice = notices[Astro.url.searchParams.get("hecho") ?? ""];
       )}
     </Card>
     <Card title="Precios por tipo de bicicleta">
+      {canEdit ? (
+      <form method="post" action={PATH}>
+        <input type="hidden" name="accion" value="precios" />
+        <div class="fields catalog-price-fields">
+            {BIKE_TYPES.map((type) => (
+              <div class="field">
+                <label for={`price-${type}`}>Precio {BIKE_TYPE_LABELS[type]} (CLP)</label>
+                <input id={`price-${type}`} name={`precio_${type}`} type="text" inputmode="decimal" placeholder="No aplica" value={priceValues[type]} aria-invalid={Boolean(fieldErrors[`price-${type}`])} aria-describedby={fieldErrors[`price-${type}`] ? `price-error-${type}` : undefined} />
+                {fieldErrors[`price-${type}`] && <p id={`price-error-${type}`}>{fieldErrors[`price-${type}`]}</p>}
+              </div>
+            ))}
+        </div>
+        <button type="submit" class="btn">Guardar precios</button>
+      </form>
+      ) : (
       <div class="scroll-x">
         <table class="dense">
           <caption>Precios en pesos chilenos</caption>
-          <thead><tr><th scope="col">Tipo de bicicleta</th><th scope="col">Precio actual</th>{canEdit && <th scope="col">Editar precio</th>}</tr></thead>
+          <thead><tr><th scope="col">Tipo de bicicleta</th><th scope="col">Precio actual</th></tr></thead>
           <tbody>
             {BIKE_TYPES.map((type) => (
               <tr>
                 <th scope="row">{BIKE_TYPE_LABELS[type]}</th>
                 <td class={service.prices[type] === undefined ? "muted" : "mono"}>{service.prices[type] === undefined ? "Sin precio" : formatClp(service.prices[type])}</td>
-                {canEdit && <td>
-                  <form method="post" action={PATH}>
-                    <fieldset class="field">
-                      <legend>Precio {BIKE_TYPE_LABELS[type]}</legend>
-                      <input type="hidden" name="accion" value="precio" />
-                      <input type="hidden" name="bikeType" value={type} />
-                      <label for={`price-${type}`}>Precio {BIKE_TYPE_LABELS[type]} (CLP)</label>
-                      <input id={`price-${type}`} name="priceClp" type="number" required min="0" max="2147483647" step="1" value={failedAction === "precio" && failedBike === type ? failedPrice : service.prices[type] ?? ""} aria-invalid={failedBike === type && Boolean(fieldErrors.priceClp)} aria-describedby={failedBike === type && fieldErrors.priceClp ? `price-error-${type}` : undefined} />
-                      {failedBike === type && fieldErrors.priceClp && <p id={`price-error-${type}`}>{fieldErrors.priceClp}</p>}
-                      <button type="submit" class="btn">Guardar precio {BIKE_TYPE_LABELS[type]}</button>
-                    </fieldset>
-                  </form>
-                </td>}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      )}
     </Card>
   </div>
 </TallerLayout>
+
+<style is:global>
+  .taller .catalog-price-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-block-end: 16px;
+  }
+  .taller .catalog-price-fields input {
+    width: 100%;
+    min-width: 0;
+  }
+  @media (min-width: 1200px) {
+    .taller .catalog-price-fields {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 479px) {
+    .taller .catalog-price-fields {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>
