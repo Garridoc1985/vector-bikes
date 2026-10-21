@@ -3,6 +3,7 @@ import { z } from "zod";
 import Card from "../../../../components/taller/Card.astro";
 import OrderTabs from "../../../../components/taller/OrderTabs.astro";
 import PageHeader from "../../../../components/taller/PageHeader.astro";
+import ReceptionSteps from "../../../../components/taller/ReceptionSteps.astro";
 import TallerLayout from "../../../../layouts/TallerLayout.astro";
 import { ORDER_TABS } from "../../../../lib/taller-tabs.ts";
 import { isAllowedOrigin } from "../../../../server/api/handlers.ts";
@@ -184,6 +185,7 @@ const tabs = ORDER_TABS.filter((tab) => can(user.role, tab.permission));
   <div class="stack">
     <PageHeader title={number} status={{ status: order.status, label: STATUS_LABELS[order.status as OrderStatus] }} />
     <OrderTabs orderId={order.id} active="recepcion" tabs={tabs} />
+    <ReceptionSteps current={2} />
     <div class="fields">
       <Card title="Cliente">
         <p>{customer.name}</p>
@@ -195,11 +197,6 @@ const tabs = ORDER_TABS.filter((tab) => can(user.role, tab.permission));
         <p>{order.requestedService}</p>
       </Card>
     </div>
-    <section id="reception-sections" aria-label="Recepción" class="card stack">
-      <h2>Recepción</h2>
-      {order.status === "recibida" ? <p role="status">Recepción finalizada</p> : <p class="muted">Orden creada. La recepción está pendiente.</p>}
-      <a class="btn" href={`/taller/ordenes/${order.id}/cierre`}>Continuar a fotos y firma</a>
-    </section>
     {error && <p role="alert">{error}</p>}
     {Astro.url.searchParams.get("hecho") === "checklist" && <p role="status">Checklist guardado.</p>}
     {Astro.url.searchParams.get("hecho") === "accesorio" && <p role="status">Accesorio agregado.</p>}
@@ -305,5 +302,14 @@ const tabs = ORDER_TABS.filter((tab) => can(user.role, tab.permission));
         <button type="submit" class="btn">Confirmar fecha</button>
       </form>
     </Card>
+    <section id="reception-sections" aria-label="Recepción" class="card stack">
+      <h2>Recepción</h2>
+      {order.status === "recibida" ? <p role="status">Recepción finalizada</p> : <p class="muted">Orden creada. La recepción está pendiente.</p>}
+      <p>Checklist: {missing === 0 ? "Completo" : "Pendiente"}</p>
+      <p>Fecha de entrega: {order.deliveryDateConfirmedAt ? "Confirmada" : "Pendiente"}</p>
+      <p>Servicios: {items.length} {items.length === 1 ? "agregado" : "agregados"}</p>
+      {missing > 0 && <p>Marca los 7 puntos y pulsa «Guardar checklist» antes de continuar.</p>}
+      <a class="btn" href={`/taller/ordenes/${order.id}/cierre`}>Continuar a fotos y firma</a>
+    </section>
   </div>
 </TallerLayout>

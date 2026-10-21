@@ -1,20 +1,27 @@
 ---
+import { DateTime } from "luxon";
 import { z } from "zod";
 import Card from "../../../../components/taller/Card.astro";
 import OrderTabs from "../../../../components/taller/OrderTabs.astro";
 import PageHeader from "../../../../components/taller/PageHeader.astro";
 import PhotoCapture from "../../../../components/taller/PhotoCapture.tsx";
+import ReceptionSteps from "../../../../components/taller/ReceptionSteps.astro";
 import SignaturePad from "../../../../components/taller/SignaturePad.tsx";
 import TallerLayout from "../../../../layouts/TallerLayout.astro";
 import { ORDER_TABS } from "../../../../lib/taller-tabs.ts";
 import { isAllowedOrigin } from "../../../../server/api/handlers.ts";
 import { loginRedirect, requireAdmin, SESSION_COOKIE } from "../../../../server/auth/admin-auth.ts";
 import { can, forbiddenResponse } from "../../../../server/auth/permissions.ts";
+import { TIMEZONE } from "../../../../server/booking/rules.ts";
 import { getDb } from "../../../../server/db/client.ts";
 import { getStorage } from "../../../../server/storage/storage.ts";
 import { formatOrderNumber, getOrderHeader } from "../../../../server/taller/orders.ts";
 import { listOrderPhotos } from "../../../../server/taller/photos.ts";
-import { finalizeReception, receptionReadiness } from "../../../../server/taller/reception.ts";
+import {
+  finalizeReception,
+  receptionReadiness,
+  receptionSignature,
+} from "../../../../server/taller/reception.ts";
 import { BIKE_TYPE_LABELS, STATUS_LABELS } from "../../../../server/taller/rules.ts";
 import type { BikeType, OrderStatus } from "../../../../server/taller/rules.ts";
 
@@ -114,12 +121,23 @@ const photos = (await listOrderPhotos(db, user, order.id)).filter(
   (photo) => photo.stage === "recepcion",
 );
 const tabs = ORDER_TABS.filter((tab) => can(user.role, tab.permission));
+const signature =
+  order.status !== "reservada" ? await receptionSignature(db, user, order.id) : null;
+const receivedAt = signature?.signedAt ?? order.receivedAt;
+/** `null` cuando la orden no registra fecha: el texto se arma sin ella. */
+const receptionDate = receivedAt
+  ? DateTime.fromJSDate(receivedAt)
+      .setZone(TIMEZONE)
+      .setLocale("es-CL")
+      .toFormat("cccc d 'de' LLLL 'de' yyyy")
+  : null;
 ---
 
 <TallerLayout title={`${number} · Fotos y firma — Vector Bikes`} description="Completar las fotos y la firma de recepción." path="/taller/recepcion/nueva" user={user}>
   <div class="stack">
     <PageHeader title={number} status={{ status: order.status, label: STATUS_LABELS[order.status as OrderStatus] }} />
     <OrderTabs orderId={order.id} active="cierre" tabs={tabs} />
+    <ReceptionSteps current={photos.length > 0 ? 4 : 3} />
     <div class="fields">
       <Card title="Cliente">
         <p>{customer.name}</p>
@@ -143,7 +161,7 @@ const tabs = ORDER_TABS.filter((tab) => can(user.role, tab.permission));
       </div>
       <PhotoCapture client:load uploadUrl={`/taller/ordenes/${order.id}/fotos`} stage="recepcion" />
     </Card>
-    <Card><form method="post" action={Astro.url.pathname}>
+    {order.status === "reservada" ? <Card title="Firma del cliente"><form method="post" action={Astro.url.pathname}>
       <div class="fields">
         <SignaturePad client:load name="firma" label="Firma del cliente" />
         <div class="field">
@@ -153,6 +171,8 @@ const tabs = ORDER_TABS.filter((tab) => can(user.role, tab.permission));
         </div>
       </div>
       <button type="submit" class="btn">Finalizar recepción</button>
-    </form></Card>
+    </form></Card> : <Card title="Firma del cliente">
+      <p>Recepción finalizada{receptionDate && ` el ${receptionDate}`}{signature && ` · firmó ${signature.signedByName}`}</p>
+    </Card>}
   </div>
 </TallerLayout>

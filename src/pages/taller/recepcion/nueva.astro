@@ -3,6 +3,7 @@ import { DateTime } from "luxon";
 import { z } from "zod";
 import Card from "../../../components/taller/Card.astro";
 import PageHeader from "../../../components/taller/PageHeader.astro";
+import ReceptionSteps from "../../../components/taller/ReceptionSteps.astro";
 import TallerLayout from "../../../layouts/TallerLayout.astro";
 import { isAllowedOrigin } from "../../../server/api/handlers.ts";
 import { loginRedirect, requireAdmin, SESSION_COOKIE } from "../../../server/auth/admin-auth.ts";
@@ -184,6 +185,7 @@ const bikeFields = [
 <TallerLayout title="Nueva recepción — Vector Bikes" description="Iniciar la recepción de una bicicleta." path={PATH} user={user}>
   <div class="stack">
     <PageHeader title="Nueva recepción" />
+    <ReceptionSteps current={1} />
     {bookingData && (
       <Card label="Resumen de la reserva" title="Reserva">
         <p>{bookingData.booking.customerName} · {bookingData.booking.bike}</p>

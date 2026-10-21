@@ -102,6 +102,21 @@ async function hasReceptionSignature(db: AppDb, branchId: string, orderId: strin
   return Boolean(signature);
 }
 
+export async function receptionSignature(db: AppDb, actor: SessionUser, orderId: string) {
+  const [signature] = await db
+    .select({ signedByName: orderSignatures.signedByName, signedAt: orderSignatures.signedAt })
+    .from(orderSignatures)
+    .where(
+      and(
+        eq(orderSignatures.branchId, actor.branchId),
+        eq(orderSignatures.workOrderId, orderId),
+        eq(orderSignatures.kind, "recepcion"),
+      ),
+    )
+    .limit(1);
+  return signature ?? null;
+}
+
 export async function receptionReadiness(db: AppDb, orderId: string): Promise<MissingItem[]> {
   const [order] = await db.select().from(workOrders).where(eq(workOrders.id, orderId)).limit(1);
   if (!order) return ["checklist", "fotos", "fecha", "firma"];
