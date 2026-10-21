@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "preact/hooks";
 import SignaturePad from "signature_pad";
+import { scaleSignatureStrokes } from "../../lib/signature-scale.ts";
 
 interface Props {
   name: string;
@@ -23,24 +24,33 @@ function useSignaturePad() {
     if (!canvas || !input) return;
     const pad = new SignaturePad(canvas, { backgroundColor: PAPER, penColor: INK });
     padRef.current = pad;
-    const resize = () => {
-      const ratio = Math.max(window.devicePixelRatio || 1, 1);
-      canvas.width = Math.round(canvas.offsetWidth * ratio);
-      canvas.height = Math.round(canvas.offsetHeight * ratio);
-      canvas.getContext("2d")?.scale(ratio, ratio);
-      pad.clear();
-      input.value = "";
-    };
+    let size = { width: 0, height: 0 };
     const endStroke = () => {
       input.value = pad.isEmpty() ? "" : pad.toDataURL("image/png");
     };
+    const resize = () => {
+      const { offsetWidth: width, offsetHeight: height } = canvas;
+      if (width === size.width && height === size.height) return;
+      const strokes = pad.toData();
+      const ratio = Math.max(window.devicePixelRatio || 1, 1);
+      canvas.width = Math.round(width * ratio);
+      canvas.height = Math.round(height * ratio);
+      canvas.getContext("2d")?.scale(ratio, ratio);
+      pad.clear();
+      if (strokes.length > 0 && size.width > 0) {
+        pad.fromData(scaleSignatureStrokes(strokes, size.width, width));
+      }
+      size = { width, height };
+      endStroke();
+    };
     resize();
     pad.addEventListener("endStroke", endStroke);
-    window.addEventListener("resize", resize);
+    const observer = new ResizeObserver(resize);
+    observer.observe(canvas);
     return () => {
       pad.off();
       pad.removeEventListener("endStroke", endStroke);
-      window.removeEventListener("resize", resize);
+      observer.disconnect();
       padRef.current = null;
     };
   }, []);
