@@ -137,7 +137,7 @@ const receptionDate = receivedAt
   <div class="stack">
     <PageHeader title={number} status={{ status: order.status, label: STATUS_LABELS[order.status as OrderStatus] }} />
     <OrderTabs orderId={order.id} active="cierre" tabs={tabs} />
-    <ReceptionSteps current={photos.length > 0 ? 4 : 3} />
+    <ReceptionSteps current={order.status !== "reservada" || photos.length > 0 ? 4 : 3} />
     <div class="fields">
       <Card title="Cliente">
         <p>{customer.name}</p>
