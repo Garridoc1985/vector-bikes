@@ -181,3 +181,19 @@ it("reprogramar una reserva de tres pide tres bloques seguidos en el día nuevo"
   expect(await bloques(martes)).toEqual(["16:00", "16:30", "17:00", "17:30"]);
   expect(await bloques(LUNES)).toEqual([]);
 });
+
+it("una lista vacía es una reserva de una bici y una de cuatro es un error de programación", async () => {
+  // La pantalla valida de 1 a 3 con zod, pero el motor no puede depender de eso: sin guarda,
+  // estas dos llamadas se estrellan contra `bookings_bike_count_check` y salen como 500.
+  const vacia = await crear({ bikes: [] });
+
+  expect(vacia).toMatchObject({ ok: true });
+  if (vacia.ok) {
+    expect(vacia.booking.bikeCount).toBe(1);
+    expect(vacia.booking.bike).toBe("Trek Marlin");
+  }
+
+  await expect(
+    crear({ bikes: [...TRES, { bike: "Cuarta", description: "No cabe" }], start: "17:00" }),
+  ).rejects.toThrow(/entre 1 y 3/);
+});

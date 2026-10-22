@@ -2,7 +2,7 @@ import { and, eq, gt, inArray, like, or, sql } from "drizzle-orm";
 import { type AppDb, isUniqueViolation } from "../db/client.ts";
 import { type Booking, bookingBikes, bookingBlocks, bookingDays, bookings } from "../db/schema.ts";
 import { readDay } from "./day-state.ts";
-import { PICKUP_FEE_CLP } from "./rules.ts";
+import { MAX_BIKES_PER_BOOKING, PICKUP_FEE_CLP } from "./rules.ts";
 import type { BookingMode } from "./rules.ts";
 import { checkStart } from "./slots.ts";
 import { hashCancelToken, newCancelToken } from "./tokens.ts";
@@ -110,15 +110,33 @@ async function insertBooking(
  * Orden de locks fijo: `booking_days` FOR UPDATE → advisory lock por teléfono.
  * Nada de red ni correos aquí dentro: se notifica después del commit.
  */
+/**
+ * Una lista vacía es lo mismo que no mandar lista: la reserva es de una bici, con los campos
+ * sueltos. Más de `MAX_BIKES_PER_BOOKING` es un error de quien llama —la pantalla valida con zod
+ * antes—, y conviene que se vea como tal y no como una violación de CHECK en medio del insert.
+ */
+function bikesOf(input: CreateBookingInput): CreateBookingInput["bikes"] {
+  if (input.bikes === undefined || input.bikes.length === 0) return undefined;
+  if (input.bikes.length > MAX_BIKES_PER_BOOKING) {
+    throw new Error(`Una reserva lleva entre 1 y ${MAX_BIKES_PER_BOOKING} bicicletas.`);
+  }
+  return input.bikes;
+}
+
 export async function createBooking(
   db: AppDb,
   input: CreateBookingInput,
   now: Date,
 ): Promise<CreateBookingResult> {
+  const bikes = bikesOf(input);
+  const booking = { ...input, bikes };
   const cancelToken = newCancelToken();
   try {
     return await db.transaction(async (tx) => {
-      await tx.insert(bookingDays).values({ serviceDate: input.serviceDate }).onConflictDoNothing();
+      await tx
+        .insert(bookingDays)
+        .values({ serviceDate: booking.serviceDate })
+        .onConflictDoNothing();
       await tx
         .select({ serviceDate: bookingDays.serviceDate })
         .from(bookingDays)
@@ -147,15 +165,15 @@ export async function createBooking(
         mode: input.mode,
         now,
         start: input.start,
-        bikeCount: input.bikes?.length ?? 1,
+        bikeCount: bikes?.length ?? 1,
         ...day,
       });
       if (!slot.ok) {
         return { ok: false, code: "slot_unavailable" };
       }
 
-      const booking = await insertBooking(tx, input, now, slot, cancelToken);
-      return { ok: true, booking, cancelToken };
+      const created = await insertBooking(tx, booking, now, slot, cancelToken);
+      return { ok: true, booking: created, cancelToken };
     });
   } catch (error) {
     if (isUniqueViolation(error)) {
