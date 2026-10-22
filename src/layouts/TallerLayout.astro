@@ -22,6 +22,7 @@ const groups: { label: string; links: Link[] }[] = [
       { label: "Órdenes", href: "/taller/ordenes", action: "orders.edit" },
       { label: "Recepción", href: "/taller/recepcion/nueva", action: "reception.perform" },
       { label: "Reservas", href: "/taller/reservas", action: "bookings.manage" },
+      { label: "Agenda", href: "/admin", action: "admin.panel" },
     ],
   },
   {
@@ -30,7 +31,6 @@ const groups: { label: string; links: Link[] }[] = [
       { label: "Clientes", href: "/taller/clientes", action: "customers.manage" },
       { label: "Catálogo", href: "/taller/catalogo", action: "catalog.view" },
       { label: "Usuarios", href: "/taller/usuarios", action: "users.manage" },
-      { label: "Agenda", href: "/admin", action: "admin.panel" },
     ],
   },
 ];
