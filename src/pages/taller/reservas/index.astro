@@ -1,5 +1,6 @@
 ---
 import { DateTime } from "luxon";
+import { z } from "zod";
 import Card from "../../../components/taller/Card.astro";
 import PageHeader from "../../../components/taller/PageHeader.astro";
 import TallerLayout from "../../../layouts/TallerLayout.astro";
@@ -27,6 +28,18 @@ if (!user)
 if (!can(user.role, "bookings.manage")) return forbiddenResponse();
 Astro.response.headers.set("cache-control", "no-store");
 const upcoming = await listUpcomingBookings(db, localToday(now));
+const rescheduled = z
+  .object({
+    date: z.iso.date(),
+    time: z.string().regex(/^(?:[01]\d|2[0-3]):(?:00|30)$/),
+  })
+  .safeParse({
+    date: Astro.url.searchParams.get("fecha"),
+    time: Astro.url.searchParams.get("hora"),
+  });
+const rescheduledMessage = rescheduled.success
+  ? `Reserva reprogramada para el ${DateTime.fromISO(rescheduled.data.date, { zone: TIMEZONE }).setLocale("es").toFormat("cccc d 'de' LLLL")} a las ${rescheduled.data.time}.`
+  : "Reserva reprogramada.";
 const sourceLabels: Record<string, string> = {
   web: "Sitio",
   telefono: "Teléfono",
@@ -41,6 +54,7 @@ const sourceLabels: Record<string, string> = {
       <a slot="actions" class="btn" href={`${PATH}/nueva`}>Nueva reserva</a>
     </PageHeader>
     {Astro.url.searchParams.get("hecho") === "creada" && <p role="status">Reserva creada.</p>}
+    {Astro.url.searchParams.get("hecho") === "reprogramada" && <p role="status">{rescheduledMessage}</p>}
     <Card><div class="scroll-x">
       <table class="dense">
         <caption>Reservas próximas · 14 días</caption>
@@ -56,7 +70,10 @@ const sourceLabels: Record<string, string> = {
                 {booking.orderId && booking.orderNumber !== null ? (
                   <a class="btn ghost" href={`/taller/ordenes/${booking.orderId}/recepcion`}>{formatOrderNumber(booking.orderNumber)}</a>
                 ) : (
-                  <a class="btn ghost" href={`/taller/recepcion/nueva?reserva=${booking.id}`}>Recibir</a>
+                  <div class="booking-actions">
+                    <a class="btn ghost" href={`/taller/recepcion/nueva?reserva=${booking.id}`}>Recibir</a>
+                    <a class="btn ghost" href={`/taller/reservas/${booking.id}/reprogramar`}>Reprogramar</a>
+                  </div>
                 )}
               </td>
             </tr>
@@ -67,3 +84,11 @@ const sourceLabels: Record<string, string> = {
     </div></Card>
   </div>
 </TallerLayout>
+
+<style is:global>
+  .taller .booking-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+</style>

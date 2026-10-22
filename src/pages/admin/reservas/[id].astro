@@ -351,6 +351,7 @@ const noticeStatusLabel: Record<string, string> = {
                       Marcar no-show
                     </button>
                   </form>
+                  <a href={`/taller/reservas/${booking.id}/reprogramar`} class="btn ghost">Reprogramar</a>
                   <form method="post">
                     <input type="hidden" name="accion" value="cancelar" />
                     <button type="submit" class="btn ghost">

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SITE } from "../../src/lib/site.ts";
+import { icsSequence } from "../../src/server/email/notifications.ts";
 import type { Booking } from "../../src/server/db/schema.ts";
 import { bookingRescheduledEmail, shopRescheduledEmail } from "../../src/server/email/templates.ts";
 
@@ -108,5 +109,24 @@ describe("correo de reserva reprogramada", () => {
     expect(email.text).toContain("22 de octubre");
     expect(email.text).toContain("Patricia Cruzat");
     expect(email.text).toContain("+56911112222");
+  });
+});
+
+describe("número de secuencia del calendario", () => {
+  // El .ics original sale con SEQUENCE 0: si una reprogramación no lo supera, el calendario del
+  // cliente ignora el cambio en silencio. Y si dos reprogramaciones no crecen entre sí, la segunda
+  // se pierde igual. Esta es la propiedad de la que depende que el evento se mueva.
+  it("siempre supera el cero y crece con cada actualización", () => {
+    const primera = icsSequence(new Date("2026-10-21T12:00:00.000Z"));
+    const segunda = icsSequence(new Date("2026-10-21T12:00:05.000Z"));
+
+    expect(primera).toBeGreaterThan(0);
+    expect(segunda).toBeGreaterThan(primera);
+    expect(Number.isInteger(segunda)).toBe(true);
+    expect(segunda).toBeLessThan(2_147_483_647);
+  });
+
+  it("una reserva creada y movida en el mismo segundo igual supera al evento original", () => {
+    expect(icsSequence(new Date("2026-01-01T00:00:00.000Z"))).toBeGreaterThan(0);
   });
 });
