@@ -1,10 +1,13 @@
 import { and, eq, gt, inArray, ne, sql } from "drizzle-orm";
 import { DateTime } from "luxon";
+import { errorMessage, log } from "../../lib/log.ts";
 import type { SessionUser } from "../auth/admin-auth.ts";
 import { can } from "../auth/permissions.ts";
 import { type AppDb, isUniqueViolation } from "../db/client.ts";
 import { workOrders } from "../db/schema-orders.ts";
 import { type Booking, bookingBlocks, bookingDays, bookings } from "../db/schema.ts";
+import { notifyBookingRescheduled } from "../email/notifications.ts";
+import type { NotifyDeps } from "../email/notifications.ts";
 import { recordAudit } from "../taller/audit.ts";
 import { readDay } from "./day-state.ts";
 import { TIMEZONE } from "./rules.ts";
@@ -163,12 +166,25 @@ export async function rescheduleBooking(
   actor: SessionUser,
   args: { bookingId: string; serviceDate: string; start: string },
   now: Date,
+  deps: NotifyDeps = {},
 ): Promise<RescheduleResult> {
   if (!can(actor.role, "bookings.manage")) return { ok: false, code: "forbidden" };
+  let result: RescheduleResult;
   try {
-    return await db.transaction((tx) => rescheduleInTransaction(tx, actor, args, now));
+    result = await db.transaction((tx) => rescheduleInTransaction(tx, actor, args, now));
   } catch (error) {
     if (isUniqueViolation(error)) return { ok: false, code: "slot_unavailable" };
     throw error;
   }
+  if (result.ok) {
+    try {
+      await notifyBookingRescheduled(result.booking, result.previous, deps);
+    } catch (error) {
+      log.error("email.rescheduled_failed", {
+        code: result.booking.code,
+        message: errorMessage(error),
+      });
+    }
+  }
+  return result;
 }

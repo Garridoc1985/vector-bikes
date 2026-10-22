@@ -87,6 +87,23 @@ function bikeRows(booking: Booking): Row[] {
   ];
 }
 
+function rescheduledRows(
+  booking: Booking,
+  previous: { serviceDate: string; start: string },
+): Row[] {
+  const previousDate = DateTime.fromISO(previous.serviceDate, { zone: TIMEZONE }).toJSDate();
+  return [
+    ["Fecha anterior", formatDate(previousDate)],
+    ["Horario anterior", `${previous.start} hrs`],
+    ...scheduleRows(booking).map(
+      ([label, value]): Row => [
+        label === "Fecha" ? "Nueva fecha" : label === "Horario" ? "Nuevo horario" : label,
+        value,
+      ],
+    ),
+  ];
+}
+
 function renderHtml(content: EmailContent): string {
   const paragraph = (text: string) =>
     `<p style="margin:0 0 12px;line-height:1.55">${escapeHtml(text)}</p>`;
@@ -155,6 +172,43 @@ export function shopNewBookingEmail(booking: Booking): RenderedEmail {
     intro: ["Entró una reserva desde el sitio."],
     rows: [
       ...scheduleRows(booking),
+      ["Cliente", booking.customerName],
+      ["Teléfono", booking.phoneE164],
+      ["Correo", booking.email ?? "Sin correo"],
+      ...bikeRows(booking),
+    ],
+    notes: [],
+  });
+}
+
+/** Cambio de horario al cliente, con la misma referencia y sin regenerar enlaces. */
+export function bookingRescheduledEmail(
+  booking: Booking,
+  previous: { serviceDate: string; start: string },
+): RenderedEmail {
+  const firstName = booking.customerName.split(" ")[0] ?? booking.customerName;
+  return render(`Cambiamos tu reserva · ${booking.code} · ${SITE.name}`, {
+    heading: "Cambiamos tu reserva",
+    intro: [`Hola ${firstName}, estos son los datos actualizados de tu reserva.`],
+    rows: [...rescheduledRows(booking, previous), ...bikeRows(booking)],
+    notes: [
+      EXTRA_WORK_NOTE,
+      "Adjuntamos la reserva actualizada para tu calendario.",
+      "Si no puedes venir, cancela con el enlace del correo de confirmación o responde este correo.",
+    ],
+  });
+}
+
+/** Aviso al taller del horario anterior, el nuevo y los datos de contacto. */
+export function shopRescheduledEmail(
+  booking: Booking,
+  previous: { serviceDate: string; start: string },
+): RenderedEmail {
+  return render(`Reserva reprogramada ${booking.code}`, {
+    heading: "Reserva reprogramada",
+    intro: ["Se cambió la fecha o el horario de una reserva."],
+    rows: [
+      ...rescheduledRows(booking, previous),
       ["Cliente", booking.customerName],
       ["Teléfono", booking.phoneE164],
       ["Correo", booking.email ?? "Sin correo"],

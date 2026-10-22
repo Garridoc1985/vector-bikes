@@ -5,9 +5,11 @@ import { SITE } from "../../lib/site.ts";
 import type { Booking } from "../db/schema.ts";
 import {
   type RenderedEmail,
+  bookingRescheduledEmail,
   customerConfirmationEmail,
   shopCancellationEmail,
   shopNewBookingEmail,
+  shopRescheduledEmail,
 } from "./templates.ts";
 import { type EmailMessage, type EmailTransport, createTransport } from "./transport.ts";
 
@@ -19,10 +21,23 @@ export type NotifyDeps = {
 
 export const ICS_FILENAME = "reserva-vector-bikes.ics";
 
+/**
+ * El `.ics` original sale con `SEQUENCE: 0`. Para que el calendario mueva el evento en vez de
+ * duplicarlo, cada reprogramación manda un número mayor: segundos desde una fecha fija, que crece
+ * con el reloj y cabe de sobra en un entero de 32 bits. Dos reprogramaciones dentro del mismo
+ * segundo compartirían el número, que es lo más cerca que se llega sin agregar una columna.
+ */
+const ICS_SEQUENCE_EPOCH_SECONDS = Date.UTC(2026, 0, 1) / 1000;
+
+export function icsSequence(updatedAt: Date): number {
+  return Math.max(1, Math.floor(updatedAt.getTime() / 1000 - ICS_SEQUENCE_EPOCH_SECONDS));
+}
+
 /** Evento de calendario en UTC; el cliente de correo lo muestra en la zona del usuario. */
-export function buildIcs(booking: Booking): string {
+export function buildIcs(booking: Booking, sequence = 0): string {
   const { error, value } = createEvent({
     uid: `${booking.code}@vectorbikes.cl`,
+    sequence,
     productId: "vectorbikes/reservas",
     title: `${SITE.name} · Reserva ${booking.code}`,
     description: `Reserva ${booking.code}. Bicicleta: ${booking.bike}.`,
@@ -109,5 +124,32 @@ export async function notifyBookingCancelled(
     "shop_cancellation",
     booking.code,
     message(env.SHOP_NOTIFY_EMAIL, shopCancellationEmail(booking)),
+  );
+}
+
+/** Post-commit: cambio al cliente (con calendario actualizado) y aviso al taller. */
+export async function notifyBookingRescheduled(
+  booking: Booking,
+  previous: { serviceDate: string; start: string },
+  deps: NotifyDeps = {},
+): Promise<void> {
+  const env = deps.env ?? getEmailEnv();
+  const transport = deps.transport ?? createTransport(env);
+  if (booking.email !== null) {
+    const rescheduled = message(booking.email, bookingRescheduledEmail(booking, previous));
+    rescheduled.attachments = [
+      {
+        filename: ICS_FILENAME,
+        content: buildIcs(booking, icsSequence(booking.updatedAt)),
+        contentType: "text/calendar",
+      },
+    ];
+    await deliver(transport, "rescheduled", booking.code, rescheduled);
+  }
+  await deliver(
+    transport,
+    "shop_rescheduled",
+    booking.code,
+    message(env.SHOP_NOTIFY_EMAIL, shopRescheduledEmail(booking, previous)),
   );
 }
