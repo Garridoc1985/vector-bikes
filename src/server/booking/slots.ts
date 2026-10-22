@@ -6,8 +6,8 @@ import {
   BLOCKS_PER_MODE,
   DAILY_CAPACITY,
   HORIZON_DAYS,
+  hoursFor,
   MIN_NOTICE_MINUTES,
-  RECEPTION_HOURS,
   TIMEZONE,
 } from "./rules.ts";
 
@@ -76,12 +76,12 @@ export function localToInstant(date: string, hhmm: string): Date | null {
 }
 
 /** Inicios de bloque del día, cada 30 min, mientras el bloque termine antes del cierre. */
-export function gridForDate(date: string): string[] {
+export function gridForDate(date: string, mode: BookingMode = "taller"): string[] {
   const local = DateTime.fromISO(date, { zone: TIMEZONE });
   if (!local.isValid) {
     return [];
   }
-  const hours = RECEPTION_HOURS[local.weekday];
+  const hours = hoursFor(mode, local.weekday);
   if (!hours) {
     return [];
   }
@@ -133,8 +133,12 @@ function stateFor(input: DayInput, grid: string[], index: number, start: string)
 export type DayClosure = { status: "closed" | "holiday" | "blocked"; holidayName: string | null };
 
 /** Por qué el día no recibe bicis según calendario (sin horario, feriado o bloqueo de día completo), o `null`. */
-export function calendarClosure(date: string, blocked: DayInput["blocked"]): DayClosure | null {
-  if (gridForDate(date).length === 0) {
+export function calendarClosure(
+  date: string,
+  blocked: DayInput["blocked"],
+  mode: BookingMode = "taller",
+): DayClosure | null {
+  if (gridForDate(date, mode).length === 0) {
     return { status: "closed", holidayName: null };
   }
   const holidayName = HOLIDAYS.get(date);
@@ -160,11 +164,11 @@ export function computeDay(input: DayInput): DayAvailability {
   if (input.date > addDays(localToday(input.now), HORIZON_DAYS)) {
     return closed("closed");
   }
-  const closure = calendarClosure(input.date, input.blocked);
+  const closure = calendarClosure(input.date, input.blocked, input.mode);
   if (closure !== null) {
     return closed(closure.status, closure.holidayName);
   }
-  const grid = gridForDate(input.date);
+  const grid = gridForDate(input.date, input.mode);
   if (input.usedCount >= DAILY_CAPACITY) {
     return closed("full");
   }
@@ -183,7 +187,7 @@ export function checkStart(input: DayInput & { start: string }): CheckStartResul
   if (day.status !== "open") {
     return { ok: false, reason: day.status };
   }
-  const grid = gridForDate(input.date);
+  const grid = gridForDate(input.date, input.mode);
   const index = grid.indexOf(input.start);
   const block = day.blocks[index];
   if (index < 0 || block === undefined) {

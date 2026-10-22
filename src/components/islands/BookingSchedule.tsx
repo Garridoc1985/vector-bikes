@@ -183,9 +183,13 @@ function Ruler({
   onPick: (start: string) => void;
 }) {
   const columns = `repeat(${day.blocks.length},minmax(0,1fr))`;
+  // `global.css` fija la regla en 560px, que con los 10 bloques del taller deja celdas de 56px.
+  // El retiro de lunes a viernes tiene 22, así que la regla crece y `.ruler-box` la desplaza:
+  // misma celda, mismo diseño, se corre para ver la mañana.
+  const width = `${Math.max(560, day.blocks.length * 56)}px`;
   return (
     <div class="ruler-box">
-      <div class="ruler">
+      <div class="ruler" style={`min-width:${width}`}>
         <div class="ruler-ticks" style={`grid-template-columns:${columns}`}>
           {day.blocks.map((block) => (
             <div key={block.start} class={block.start.endsWith(":00") ? "hr" : ""}>

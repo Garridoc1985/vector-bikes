@@ -23,3 +23,16 @@ export const RECEPTION_HOURS: Record<number, { open: string; close: string } | n
   6: { open: "10:00", close: "14:00" },
   7: null,
 };
+
+export const PICKUP_HOURS: typeof RECEPTION_HOURS = {
+  ...RECEPTION_HOURS,
+  1: { open: "09:00", close: "20:00" },
+  2: { open: "09:00", close: "20:00" },
+  3: { open: "09:00", close: "20:00" },
+  4: { open: "09:00", close: "20:00" },
+  5: { open: "09:00", close: "20:00" },
+};
+
+export function hoursFor(mode: BookingMode, weekday: number) {
+  return (mode === "retiro" ? PICKUP_HOURS : RECEPTION_HOURS)[weekday] ?? null;
+}
