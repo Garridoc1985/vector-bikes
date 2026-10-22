@@ -106,11 +106,6 @@ async function insertBooking(
 }
 
 /**
- * Escribe una reserva revalidando todas las reglas dentro de la transacción.
- * Orden de locks fijo: `booking_days` FOR UPDATE → advisory lock por teléfono.
- * Nada de red ni correos aquí dentro: se notifica después del commit.
- */
-/**
  * Una lista vacía es lo mismo que no mandar lista: la reserva es de una bici, con los campos
  * sueltos. Más de `MAX_BIKES_PER_BOOKING` es un error de quien llama —la pantalla valida con zod
  * antes—, y conviene que se vea como tal y no como una violación de CHECK en medio del insert.
@@ -123,6 +118,11 @@ function bikesOf(input: CreateBookingInput): CreateBookingInput["bikes"] {
   return input.bikes;
 }
 
+/**
+ * Escribe una reserva revalidando todas las reglas dentro de la transacción.
+ * Orden de locks fijo: `booking_days` FOR UPDATE → advisory lock por teléfono.
+ * Nada de red ni correos aquí dentro: se notifica después del commit.
+ */
 export async function createBooking(
   db: AppDb,
   input: CreateBookingInput,

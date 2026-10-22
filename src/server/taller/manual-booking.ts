@@ -7,6 +7,7 @@ import { can } from "../auth/permissions.ts";
 import { readRange } from "../booking/availability.ts";
 import { createBooking } from "../booking/create-booking.ts";
 import type { BookingMode } from "../booking/rules.ts";
+import { MAX_BIKES_PER_BOOKING } from "../booking/rules.ts";
 import { addDays, computeDay } from "../booking/slots.ts";
 import type { AppDb } from "../db/client.ts";
 import { workOrders } from "../db/schema-orders.ts";
@@ -39,6 +40,11 @@ export const manualBookingSchema = z
       .trim()
       .min(5, "Indica qué necesita la bici.")
       .max(1000, "Máximo 1000 caracteres."),
+    bicis: z.coerce.number().int().min(1).max(MAX_BIKES_PER_BOOKING).default(1),
+    bicicleta_2: z.string().trim().max(120, "Máximo 120 caracteres.").optional(),
+    descripcion_2: z.string().trim().max(1000, "Máximo 1000 caracteres.").optional(),
+    bicicleta_3: z.string().trim().max(120, "Máximo 120 caracteres.").optional(),
+    descripcion_3: z.string().trim().max(1000, "Máximo 1000 caracteres.").optional(),
     comuna: z.enum(["Vitacura", "Las Condes"], "Elige Vitacura o Las Condes.").nullish(),
     direccion: z
       .string()
@@ -50,6 +56,21 @@ export const manualBookingSchema = z
     consentimiento: z.literal(true, "Confirma que el cliente aceptó el aviso de privacidad."),
   })
   .superRefine((value, ctx) => {
+    for (const index of [2, 3] as const) {
+      if (value.bicis < index) continue;
+      if ((value[`bicicleta_${index}`]?.length ?? 0) < 2)
+        ctx.addIssue({
+          code: "custom",
+          path: [`bicicleta_${index}`],
+          message: "Indica la marca y el tipo de bici.",
+        });
+      if ((value[`descripcion_${index}`]?.length ?? 0) < 5)
+        ctx.addIssue({
+          code: "custom",
+          path: [`descripcion_${index}`],
+          message: "Indica qué necesita la bici.",
+        });
+    }
     if (value.mode === "retiro") {
       if (!value.comuna)
         ctx.addIssue({ code: "custom", path: ["comuna"], message: "Elige Vitacura o Las Condes." });
@@ -75,8 +96,20 @@ export const manualBookingSchema = z
     }
   });
 
-export type ManualBookingInput = z.infer<typeof manualBookingSchema>;
+export type ManualBookingInput = z.input<typeof manualBookingSchema>;
 type ManualBookingDeps = { notify?: typeof notifyBookingCreated };
+
+function declaredBikes(data: z.output<typeof manualBookingSchema>) {
+  const bikes = [{ bike: data.bicicleta, description: data.descripcion }];
+  for (const index of [2, 3] as const) {
+    if (data.bicis >= index)
+      bikes.push({
+        bike: data[`bicicleta_${index}`] ?? "",
+        description: data[`descripcion_${index}`] ?? "",
+      });
+  }
+  return bikes;
+}
 
 export async function createManualBooking(
   db: AppDb,
@@ -102,6 +135,7 @@ export async function createManualBooking(
       email: data.correo?.toLowerCase() ?? null,
       bike: data.bicicleta,
       description: data.descripcion,
+      ...(data.bicis > 1 ? { bikes: declaredBikes(data) } : {}),
       comuna: data.comuna ?? null,
       address: data.direccion ?? null,
       ipHash: null,
