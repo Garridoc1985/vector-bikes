@@ -72,7 +72,9 @@ Solo el dueño administra el equipo en `/taller/usuarios`: crea usuarios con nom
 
 ### Reservas
 
-Las reservas próximas están en `/taller/reservas`. Para cambiar el día o la hora de una, pulsa **Reprogramar**: elige el día, revisa los bloques libres y confirma. La reserva mantiene su código y su enlace de cancelación, así que el cliente sigue usando los mismos, y si tiene correo registrado recibe un aviso con el horario anterior, el nuevo y el calendario actualizado. Solo se reprograman reservas confirmadas que todavía no tienen orden de trabajo; si la bici ya se recibió, hay que cancelar y crear otra. Para cambiar la modalidad, la comuna o los datos del cliente también se cancela y se crea otra.
+Las reservas próximas están en `/taller/reservas`. Una reserva puede traer hasta **tres bicicletas**: la cantidad se elige en **Nueva reserva**, antes de ver los bloques libres, y cada bici lleva su marca y lo que necesita. Cada bici ocupa un cupo de los cuatro del día, y en el taller ocupa un bloque, así que tres bicis necesitan tres bloques seguidos; el retiro a domicilio ocupa dos bloques y cobra el recargo una sola vez, sean una o tres. En la lista, cada bici se recibe por separado con **Recibir (1 de 3)**, que precarga la que sigue, y cada una queda con su propia orden, checklist, fotos y firma. Mientras haya una bici recibida, la reserva ya no se puede reprogramar. La reserva por el sitio sigue siendo de una bicicleta.
+
+Para cambiar el día o la hora de una reserva, pulsa **Reprogramar**: elige el día, revisa los bloques libres y confirma. La reserva mantiene su código y su enlace de cancelación, así que el cliente sigue usando los mismos, y si tiene correo registrado recibe un aviso con el horario anterior, el nuevo y el calendario actualizado. Solo se reprograman reservas confirmadas que todavía no tienen orden de trabajo; si la bici ya se recibió, hay que cancelar y crear otra. Para cambiar la modalidad, la comuna o los datos del cliente también se cancela y se crea otra.
 
 ### Recepción en la tablet
 
