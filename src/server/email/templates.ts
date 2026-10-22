@@ -80,11 +80,24 @@ function scheduleRows(booking: Booking): Row[] {
   return rows;
 }
 
-function bikeRows(booking: Booking): Row[] {
-  return [
-    ["Bicicleta", booking.bike],
-    ["Qué necesita", booking.description],
-  ];
+export type BookingBikeLine = { position: number; bike: string; description: string };
+
+/**
+ * Con una bicicleta, las dos filas de siempre. Con dos o tres, cada una con su número, igual que
+ * en la pantalla del taller. El recargo del retiro no se repite: es uno por reserva.
+ */
+function bikeRows(booking: Booking, extra: BookingBikeLine[] = []): Row[] {
+  if (extra.length === 0) {
+    return [
+      ["Bicicleta", booking.bike],
+      ["Qué necesita", booking.description],
+    ];
+  }
+  const all = [{ position: 1, bike: booking.bike, description: booking.description }, ...extra];
+  return all.flatMap(({ position, bike, description }): Row[] => [
+    [`Bicicleta ${position}`, bike],
+    [`Qué necesita la bici ${position}`, description],
+  ]);
 }
 
 function rescheduledRows(
@@ -151,12 +164,16 @@ const EXTRA_WORK_NOTE =
   "El diagnóstico y los repuestos se cotizan en el taller. Si encontramos un problema extra, te llamamos antes de hacer cualquier trabajo que no estaba en tu descripción: te explicamos la solución y tú decides.";
 
 /** Confirmación al cliente, con el enlace de cancelación de un solo uso. */
-export function customerConfirmationEmail(booking: Booking, cancelUrl: string): RenderedEmail {
+export function customerConfirmationEmail(
+  booking: Booking,
+  cancelUrl: string,
+  extra: BookingBikeLine[] = [],
+): RenderedEmail {
   const firstName = booking.customerName.split(" ")[0] ?? booking.customerName;
   return render(`Reserva confirmada ${booking.code} · ${SITE.name}`, {
     heading: "Tu reserva está confirmada",
     intro: [`Hola ${firstName}, te esperamos. Estos son los datos de tu reserva.`],
-    rows: [...scheduleRows(booking), ...bikeRows(booking)],
+    rows: [...scheduleRows(booking), ...bikeRows(booking, extra)],
     notes: [
       EXTRA_WORK_NOTE,
       "Adjuntamos la reserva para tu calendario. Si no puedes venir, cancélala con el enlace de abajo para liberar el horario.",
@@ -166,7 +183,10 @@ export function customerConfirmationEmail(booking: Booking, cancelUrl: string): 
 }
 
 /** Aviso al taller de una reserva nueva, con los datos de contacto completos. */
-export function shopNewBookingEmail(booking: Booking): RenderedEmail {
+export function shopNewBookingEmail(
+  booking: Booking,
+  extra: BookingBikeLine[] = [],
+): RenderedEmail {
   return render(`Nueva reserva ${booking.code}`, {
     heading: "Nueva reserva",
     intro: ["Entró una reserva desde el sitio."],
@@ -175,7 +195,7 @@ export function shopNewBookingEmail(booking: Booking): RenderedEmail {
       ["Cliente", booking.customerName],
       ["Teléfono", booking.phoneE164],
       ["Correo", booking.email ?? "Sin correo"],
-      ...bikeRows(booking),
+      ...bikeRows(booking, extra),
     ],
     notes: [],
   });
@@ -185,12 +205,13 @@ export function shopNewBookingEmail(booking: Booking): RenderedEmail {
 export function bookingRescheduledEmail(
   booking: Booking,
   previous: { serviceDate: string; start: string },
+  extra: BookingBikeLine[] = [],
 ): RenderedEmail {
   const firstName = booking.customerName.split(" ")[0] ?? booking.customerName;
   return render(`Cambiamos tu reserva · ${booking.code} · ${SITE.name}`, {
     heading: "Cambiamos tu reserva",
     intro: [`Hola ${firstName}, estos son los datos actualizados de tu reserva.`],
-    rows: [...rescheduledRows(booking, previous), ...bikeRows(booking)],
+    rows: [...rescheduledRows(booking, previous), ...bikeRows(booking, extra)],
     notes: [
       EXTRA_WORK_NOTE,
       "Adjuntamos la reserva actualizada para tu calendario.",
@@ -203,6 +224,7 @@ export function bookingRescheduledEmail(
 export function shopRescheduledEmail(
   booking: Booking,
   previous: { serviceDate: string; start: string },
+  extra: BookingBikeLine[] = [],
 ): RenderedEmail {
   return render(`Reserva reprogramada ${booking.code}`, {
     heading: "Reserva reprogramada",
@@ -212,18 +234,18 @@ export function shopRescheduledEmail(
       ["Cliente", booking.customerName],
       ["Teléfono", booking.phoneE164],
       ["Correo", booking.email ?? "Sin correo"],
-      ...bikeRows(booking),
+      ...bikeRows(booking, extra),
     ],
     notes: [],
   });
 }
 
 /** Recordatorio al cliente el día anterior. Sin enlace: el token solo existe en la confirmación. */
-export function reminderEmail(booking: Booking): RenderedEmail {
+export function reminderEmail(booking: Booking, extra: BookingBikeLine[] = []): RenderedEmail {
   return render(`Recordatorio: tu reserva ${booking.code} es mañana · ${SITE.name}`, {
     heading: "Te esperamos mañana",
     intro: ["Te recordamos tu reserva en Vector Bikes."],
-    rows: [...scheduleRows(booking), ...bikeRows(booking)],
+    rows: [...scheduleRows(booking), ...bikeRows(booking, extra)],
     notes: [
       EXTRA_WORK_NOTE,
       "Si no puedes venir, cancela con el enlace del correo de confirmación o responde este correo.",

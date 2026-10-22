@@ -6,13 +6,7 @@ import { missingHolidayYears } from "../booking/holidays.ts";
 import { HORIZON_DAYS, TIMEZONE } from "../booking/rules.ts";
 import { localToday } from "../booking/slots.ts";
 import type { AppDb } from "../db/client.ts";
-import {
-  bookingBikes,
-  type BlockedPeriod,
-  type Booking,
-  blockedPeriods,
-  bookings,
-} from "../db/schema.ts";
+import { type BlockedPeriod, type Booking, blockedPeriods, bookings } from "../db/schema.ts";
 import {
   listNotices,
   sendReadyNotification,
@@ -63,19 +57,6 @@ export async function agendaForDate(db: AppDb, date: string): Promise<Booking[]>
     .from(bookings)
     .where(eq(bookings.serviceDate, date))
     .orderBy(asc(bookings.startsAt));
-}
-
-/** Bicicletas 2 y 3 de una reserva, en orden. Vacío si la reserva es de una. */
-export async function listBookingBikes(db: AppDb, bookingId: string) {
-  return db
-    .select({
-      position: bookingBikes.position,
-      bike: bookingBikes.bike,
-      description: bookingBikes.description,
-    })
-    .from(bookingBikes)
-    .where(eq(bookingBikes.bookingId, bookingId))
-    .orderBy(asc(bookingBikes.position));
 }
 
 export async function bookingDetail(db: AppDb, id: string): Promise<Booking | null> {

@@ -9,10 +9,10 @@ import {
   adminActionSchema,
   applyAdminAction,
   bookingDetail,
-  listBookingBikes,
   STATUS_LABELS,
   timeRange,
 } from "../../../server/admin/agenda.ts";
+import { listBookingBikes } from "../../../server/booking/booking-bikes.ts";
 import { isAllowedOrigin } from "../../../server/api/handlers.ts";
 import { loginRedirect, requireAdmin, SESSION_COOKIE } from "../../../server/auth/admin-auth.ts";
 import { can, forbiddenResponse } from "../../../server/auth/permissions.ts";
@@ -207,11 +207,11 @@ const noticeStatusLabel: Record<string, string> = {
               </div>
             )}
             <div class="row">
-              <dt>Bicicleta</dt>
+              <dt>{booking.bikeCount > 1 ? "Bicicleta 1" : "Bicicleta"}</dt>
               <dd>{booking.bike}</dd>
             </div>
             <div class="row">
-              <dt>Qué necesita</dt>
+              <dt>{booking.bikeCount > 1 ? "Qué necesita la bici 1" : "Qué necesita"}</dt>
               <dd>{booking.description}</dd>
             </div>
             {extraBikes.map((extra) => (
@@ -221,7 +221,7 @@ const noticeStatusLabel: Record<string, string> = {
                   <dd>{extra.bike}</dd>
                 </div>
                 <div class="row">
-                  <dt>Qué necesita la {extra.position}</dt>
+                  <dt>Qué necesita la bici {extra.position}</dt>
                   <dd>{extra.description}</dd>
                 </div>
               </>

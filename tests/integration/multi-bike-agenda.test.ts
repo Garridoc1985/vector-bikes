@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { SessionUser } from "../../src/server/auth/admin-auth.ts";
-import { listBookingBikes } from "../../src/server/admin/agenda.ts";
+import { listBookingBikes } from "../../src/server/booking/booking-bikes.ts";
 import type { AppDb } from "../../src/server/db/client.ts";
 import {
   type Booking,
@@ -150,4 +150,18 @@ it("el detalle lista cada bicicleta con lo que necesita", async () => {
   expect(html).toContain("Frenos");
   expect(html).toContain("Specialized Allez");
   expect(html).toContain("Cadena cambiada");
+  // Con varias, la primera también se numera; es el mismo criterio del formulario.
+  expect(html).toContain("Bicicleta 1");
+  expect(html).toContain("Qué necesita la bici 1");
+  expect(html).toContain("Qué necesita la bici 2");
+});
+
+it("con una bici el detalle conserva sus rótulos de siempre", async () => {
+  const booking = await reserva(1);
+
+  const html = await render(Detalle, `/admin/reservas/${booking.id}`, { id: booking.id });
+
+  expect(html).toContain("<dt>Bicicleta</dt>");
+  expect(html).toContain("<dt>Qué necesita</dt>");
+  expect(html).not.toContain("Bicicleta 1");
 });

@@ -3,6 +3,7 @@ import { type EmailEnv, getEmailEnv, getSiteEnv } from "../../lib/env.ts";
 import { errorMessage, log } from "../../lib/log.ts";
 import { SITE } from "../../lib/site.ts";
 import type { Booking } from "../db/schema.ts";
+import type { BookingBikeLine } from "./templates.ts";
 import {
   type RenderedEmail,
   bookingRescheduledEmail,
@@ -89,6 +90,7 @@ export async function notifyBookingCreated(
   booking: Booking,
   cancelToken: string,
   deps: NotifyDeps = {},
+  bikes: BookingBikeLine[] = [],
 ): Promise<void> {
   const env = deps.env ?? getEmailEnv();
   const transport = deps.transport ?? createTransport(env);
@@ -97,7 +99,7 @@ export async function notifyBookingCreated(
   if (booking.email !== null) {
     const confirmation = message(
       booking.email,
-      customerConfirmationEmail(booking, cancelUrlFor(cancelToken, siteUrl)),
+      customerConfirmationEmail(booking, cancelUrlFor(cancelToken, siteUrl), bikes),
     );
     confirmation.attachments = [
       { filename: ICS_FILENAME, content: buildIcs(booking), contentType: "text/calendar" },
@@ -108,7 +110,7 @@ export async function notifyBookingCreated(
     transport,
     "shop_new_booking",
     booking.code,
-    message(env.SHOP_NOTIFY_EMAIL, shopNewBookingEmail(booking)),
+    message(env.SHOP_NOTIFY_EMAIL, shopNewBookingEmail(booking, bikes)),
   );
 }
 
@@ -132,11 +134,12 @@ export async function notifyBookingRescheduled(
   booking: Booking,
   previous: { serviceDate: string; start: string },
   deps: NotifyDeps = {},
+  bikes: BookingBikeLine[] = [],
 ): Promise<void> {
   const env = deps.env ?? getEmailEnv();
   const transport = deps.transport ?? createTransport(env);
   if (booking.email !== null) {
-    const rescheduled = message(booking.email, bookingRescheduledEmail(booking, previous));
+    const rescheduled = message(booking.email, bookingRescheduledEmail(booking, previous, bikes));
     rescheduled.attachments = [
       {
         filename: ICS_FILENAME,
@@ -150,6 +153,6 @@ export async function notifyBookingRescheduled(
     transport,
     "shop_rescheduled",
     booking.code,
-    message(env.SHOP_NOTIFY_EMAIL, shopRescheduledEmail(booking, previous)),
+    message(env.SHOP_NOTIFY_EMAIL, shopRescheduledEmail(booking, previous, bikes)),
   );
 }

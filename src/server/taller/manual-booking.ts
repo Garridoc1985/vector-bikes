@@ -146,7 +146,10 @@ export async function createManualBooking(
   );
   if (result.ok) {
     try {
-      await (deps.notify ?? notifyBookingCreated)(result.booking, result.cancelToken);
+      const extra = declaredBikes(data)
+        .slice(1)
+        .map((bike, index) => ({ position: index + 2, ...bike }));
+      await (deps.notify ?? notifyBookingCreated)(result.booking, result.cancelToken, {}, extra);
     } catch {
       log.error("email.failed", { kind: "manual_booking", code: result.booking.code });
     }

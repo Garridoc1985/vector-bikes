@@ -9,6 +9,7 @@ import { type Booking, bookingBlocks, bookingDays, bookings } from "../db/schema
 import { notifyBookingRescheduled } from "../email/notifications.ts";
 import type { NotifyDeps } from "../email/notifications.ts";
 import { recordAudit } from "../taller/audit.ts";
+import { listBookingBikes } from "./booking-bikes.ts";
 import { readDay } from "./day-state.ts";
 import { TIMEZONE } from "./rules.ts";
 import type { BookingMode } from "./rules.ts";
@@ -179,7 +180,8 @@ export async function rescheduleBooking(
   }
   if (result.ok) {
     try {
-      await notifyBookingRescheduled(result.booking, result.previous, deps);
+      const bikes = await listBookingBikes(db, result.booking.id);
+      await notifyBookingRescheduled(result.booking, result.previous, deps, bikes);
     } catch (error) {
       log.error("email.rescheduled_failed", {
         code: result.booking.code,
