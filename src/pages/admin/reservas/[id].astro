@@ -9,6 +9,7 @@ import {
   adminActionSchema,
   applyAdminAction,
   bookingDetail,
+  listBookingBikes,
   STATUS_LABELS,
   timeRange,
 } from "../../../server/admin/agenda.ts";
@@ -114,6 +115,7 @@ if (Astro.request.method === "POST") {
 }
 
 const booking = await bookingDetail(getDb(), id);
+const extraBikes = booking ? await listBookingBikes(getDb(), booking.id) : [];
 if (!booking) {
   Astro.response.status = 404;
 }
@@ -198,6 +200,12 @@ const noticeStatusLabel: Record<string, string> = {
                 {booking.email ? <a href={`mailto:${booking.email}`}>{booking.email}</a> : "Sin correo"}
               </dd>
             </div>
+            {booking.bikeCount > 1 && (
+              <div class="row">
+                <dt>Bicicletas</dt>
+                <dd>{booking.bikeCount} bicicletas</dd>
+              </div>
+            )}
             <div class="row">
               <dt>Bicicleta</dt>
               <dd>{booking.bike}</dd>
@@ -206,6 +214,18 @@ const noticeStatusLabel: Record<string, string> = {
               <dt>Qué necesita</dt>
               <dd>{booking.description}</dd>
             </div>
+            {extraBikes.map((extra) => (
+              <>
+                <div class="row">
+                  <dt>Bicicleta {extra.position}</dt>
+                  <dd>{extra.bike}</dd>
+                </div>
+                <div class="row">
+                  <dt>Qué necesita la {extra.position}</dt>
+                  <dd>{extra.description}</dd>
+                </div>
+              </>
+            ))}
             <div class="row">
               <dt>Comuna / dirección</dt>
               <dd>{booking.comuna ? `${booking.comuna} / ${booking.address ?? ""}` : "—"}</dd>
