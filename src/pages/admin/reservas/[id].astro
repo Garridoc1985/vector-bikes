@@ -329,4 +329,10 @@ const noticeStatusLabel: Record<string, string> = {
   .taller .ticket-body .row {
     grid-template-columns: 140px 1fr;
   }
+  /* "Reprogramar" es un enlace entre botones: sin esto sale en 600 y 0.92rem, y los `button`
+     vecinos en 400 y 1rem, así que parecía el botón destacado del grupo sin serlo. */
+  .taller .ticket-foot .btn {
+    font-size: 1rem;
+    font-weight: 400;
+  }
 </style>
