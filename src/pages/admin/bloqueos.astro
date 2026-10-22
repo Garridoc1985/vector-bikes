@@ -1,5 +1,7 @@
 ---
-import Base from "../../layouts/Base.astro";
+import Card from "../../components/taller/Card.astro";
+import PageHeader from "../../components/taller/PageHeader.astro";
+import TallerLayout from "../../layouts/TallerLayout.astro";
 import {
   blockRange,
   createBlock,
@@ -67,35 +69,23 @@ const FIELDS = [
 ] as const;
 ---
 
-<Base
+<TallerLayout
   title="Bloqueos — Vector Bikes"
   description="Bloqueos de agenda del taller."
   path="/admin/bloqueos"
-  chrome="none"
-  noindex
+  user={admin}
 >
-  <section class="section">
-    <div class="wrap">
-      <nav class="nav" aria-label="Panel" style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-bottom:28px">
-        <a href="/admin">Agenda</a>
-        <a href="/admin/bloqueos" aria-current="page">Bloqueos</a>
-        <a href="/taller">Taller</a>
-        <form method="post" action="/admin/logout">
-          <button type="submit" class="btn ghost">Salir</button>
-        </form>
-      </nav>
-      <div class="sec-head">
-        <span class="label">Panel del taller</span>
-        <h1>Bloqueos</h1>
-        <p>Deja desde y hasta vacías para bloquear el día completo.</p>
-      </div>
-      {
-        forbidden && (
-          <p role="alert" style="margin-bottom:20px;font-weight:600">
-            No pudimos confirmar la solicitud. Recarga la página e intenta de nuevo.
-          </p>
-        )
-      }
+  <div class="stack">
+    <PageHeader title="Bloqueos" subtitle="Panel del taller" />
+    {
+      forbidden && (
+        <p role="alert" style="margin-bottom:20px;font-weight:600">
+          No pudimos confirmar la solicitud. Recarga la página e intenta de nuevo.
+        </p>
+      )
+    }
+    <Card>
+      <p>Deja desde y hasta vacías para bloquear el día completo.</p>
       <form method="post" action="/admin/bloqueos" style="margin-bottom:36px">
         <input type="hidden" name="accion" value="crear" />
         <div class="fields">
@@ -130,7 +120,8 @@ const FIELDS = [
           </div>
         </div>
       </form>
-      <h2>Próximos bloqueos</h2>
+    </Card>
+    <Card title="Próximos bloqueos" id="upcoming-blocks">
       {
         blocks.length === 0 ? (
           <p>No hay bloqueos próximos.</p>
@@ -153,6 +144,6 @@ const FIELDS = [
           </ul>
         )
       }
-    </div>
-  </section>
-</Base>
+    </Card>
+  </div>
+</TallerLayout>

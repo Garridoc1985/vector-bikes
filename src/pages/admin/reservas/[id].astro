@@ -1,7 +1,10 @@
 ---
 import { DateTime } from "luxon";
 import { z } from "zod";
-import Base from "../../../layouts/Base.astro";
+import BookingActions from "../../../components/admin/BookingActions.astro";
+import Card from "../../../components/taller/Card.astro";
+import PageHeader from "../../../components/taller/PageHeader.astro";
+import TallerLayout from "../../../layouts/TallerLayout.astro";
 import {
   adminActionSchema,
   applyAdminAction,
@@ -149,251 +152,181 @@ const noticeStatusLabel: Record<string, string> = {
 };
 ---
 
-<Base
+<TallerLayout
   title="Reserva — Vector Bikes"
   description="Detalle de una reserva."
-  path="/admin/reservas"
-  chrome="none"
-  noindex
+  path="/admin"
+  user={admin}
 >
-  <section class="section">
-    <div class="wrap">
-      <nav class="nav" aria-label="Panel" style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-bottom:28px">
-        <a href="/admin">Agenda</a>
-        <a href="/admin/bloqueos">Bloqueos</a>
-        <a href="/taller">Taller</a>
-        <form method="post" action="/admin/logout">
-          <button type="submit" class="btn ghost">Salir</button>
-        </form>
-      </nav>
-      <div class="sec-head">
-        <span class="label">Detalle</span>
-        <h1>{booking ? booking.code : "Reserva no encontrada"}</h1>
-      </div>
-      {error && <p role="alert" style="margin-bottom:20px;font-weight:600">{error}</p>}
-      {done && <p role="status" style="margin-bottom:20px;font-weight:600">{done}</p>}
-      {
-        booking ? (
-          <aside class="ticket">
-            <dl class="ticket-body">
-              <div class="row">
-                <dt>Estado</dt>
-                <dd>{STATUS_LABELS[booking.status] ?? booking.status}</dd>
-              </div>
-              <div class="row">
-                <dt>Día</dt>
-                <dd class="mono">{booking.serviceDate}</dd>
-              </div>
-              <div class="row">
-                <dt>Hora</dt>
-                <dd class="mono">{timeRange(booking)}</dd>
-              </div>
-              <div class="row">
-                <dt>Modalidad</dt>
-                <dd>{booking.mode === "retiro" ? "Retiro y devolución" : "La deja en el taller"}</dd>
-              </div>
-              <div class="row">
-                <dt>Nombre</dt>
-                <dd>{booking.customerName}</dd>
-              </div>
-              <div class="row">
-                <dt>Teléfono</dt>
-                <dd>
-                  <a href={`tel:${booking.phoneE164}`}>{booking.phoneE164}</a>
-                </dd>
-              </div>
-              <div class="row">
-                <dt>Correo</dt>
-                <dd>
-                  {booking.email ? <a href={`mailto:${booking.email}`}>{booking.email}</a> : "Sin correo"}
-                </dd>
-              </div>
-              <div class="row">
-                <dt>Bicicleta</dt>
-                <dd>{booking.bike}</dd>
-              </div>
-              <div class="row">
-                <dt>Qué necesita</dt>
-                <dd>{booking.description}</dd>
-              </div>
-              <div class="row">
-                <dt>Comuna / dirección</dt>
-                <dd>{booking.comuna ? `${booking.comuna} / ${booking.address ?? ""}` : "—"}</dd>
-              </div>
-              <div class="row">
-                <dt>Consentimiento</dt>
-                <dd class="mono">{localDate(booking.consentAt)}</dd>
-              </div>
-              <div class="row">
-                <dt>Consentimiento WhatsApp</dt>
-                <dd class="mono">
-                  {booking.whatsappConsentAt ? localDate(booking.whatsappConsentAt) : "No otorgado"}
-                </dd>
-              </div>
-              {
-                booking.cancelledAt && (
-                  <div class="row">
-                    <dt>Cancelada</dt>
-                    <dd class="mono">
-                      {localDate(booking.cancelledAt)} ({booking.cancelledBy === "admin" ? "taller" : "cliente"})
-                    </dd>
-                  </div>
-                )
-              }
-            </dl>
-            <section aria-labelledby="whatsapp-notices-title" style="padding:20px 24px;border-top:1px solid var(--line,#ddd)">
-              <h2 id="whatsapp-notices-title" style="font-size:1rem;margin:0 0 12px">Notificaciones WhatsApp</h2>
-              <p>{whatsappConfig.reason}</p>
-              {
-                notices.length === 0 ? (
-                  <p style="margin:0">Sin intentos de notificación registrados.</p>
-                ) : (
-                  <ul style="display:grid;gap:12px;list-style:none;padding:0;margin:0">
-                    {notices.map((notice) => (
-                      <li style="display:grid;gap:4px">
-                        <strong>{notice.type === "reminder" ? "Recordatorio de reserva" : "Bicicleta lista para retirar"}</strong>
-                        <span>Estado: {noticeStatusLabel[notice.status] ?? notice.status} · Intentos: {notice.attempts}</span>
-                        <span>Registro: {localDate(notice.createdAt)}</span>
-                        {notice.sentAt && <span>Enviado: {localDate(notice.sentAt)}</span>}
-                        {notice.metaMessageId && <span class="mono">ID Meta: {notice.metaMessageId}</span>}
-                        {notice.reason && <span>{notice.reason}</span>}
-                        {notice.reconciliationNote && (
-                          <span>Conciliación: {notice.reconciliationNote}</span>
-                        )}
-                        {notice.status === "unknown" && (
-                          <strong role="alert">
-                            Verifica el resultado en Meta antes de reintentar. No se reintentará automáticamente.
-                          </strong>
-                        )}
-                        {notice.canReconcile && (
-                          <form method="post" style="display:grid;gap:10px;margin-top:8px">
-                            <input type="hidden" name="accion" value="resolver_whatsapp" />
-                            <input type="hidden" name="tipo" value={notice.type} />
-                            <label>
-                              Resultado comprobado en Meta
-                              <select name="outcome" required>
-                                <option value="sent">Meta confirma que fue enviado</option>
-                                <option value="not_sent">Meta confirma que no fue aceptado</option>
-                              </select>
-                            </label>
-                            <label>
-                              ID del mensaje de Meta (obligatorio si fue enviado)
-                              <input
-                                type="text"
-                                name="metaMessageId"
-                                maxlength="200"
-                                autocomplete="off"
-                              />
-                            </label>
-                            <label>
-                              Evidencia de verificación
-                              <textarea
-                                name="evidence"
-                                minlength="10"
-                                maxlength="1000"
-                                required
-                                rows="3"
-                              ></textarea>
-                            </label>
-                            <p role="note" style="margin:0">
-                              No marques “no aceptado” solo porque hubo un timeout. Comprueba el resultado real en Meta.
-                            </p>
-                            <p role="note" style="margin:0">
-                              No confirmes solo porque haya transcurrido tiempo: el proceso de envío o la ejecución del cron externo debe haber terminado o haberse detenido.
-                            </p>
-                            <label style="display:flex;gap:8px;align-items:flex-start">
-                              <input type="checkbox" name="verificado" value="true" required />
-                              Verifiqué el resultado real de esta notificación en Meta.
-                            </label>
-                            <label style="display:flex;gap:8px;align-items:flex-start">
-                              <input type="checkbox" name="worker_stopped" value="true" required />
-                              Confirmo que el proceso de envío y cualquier ejecución del cron externo terminaron o fueron detenidos.
-                            </label>
-                            <button type="submit" class="btn ghost">Guardar conciliación manual</button>
-                          </form>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )
-              }
-            </section>
-            <div class="ticket-total">
-              <span class="label">Recargo</span>
-              <strong>{formatClp(booking.pickupFeeClp)}</strong>
+  <div class="stack">
+    <PageHeader title={booking ? booking.code : "Reserva no encontrada"} subtitle="Detalle" />
+    {error && <p role="alert" style="margin-bottom:20px;font-weight:600">{error}</p>}
+    {done && <p role="status" style="margin-bottom:20px;font-weight:600">{done}</p>}
+    {
+      booking ? (
+        <Card>
+          <dl class="ticket-body">
+            <div class="row">
+              <dt>Estado</dt>
+              <dd>{STATUS_LABELS[booking.status] ?? booking.status}</dd>
+            </div>
+            <div class="row">
+              <dt>Día</dt>
+              <dd class="mono">{booking.serviceDate}</dd>
+            </div>
+            <div class="row">
+              <dt>Hora</dt>
+              <dd class="mono">{timeRange(booking)}</dd>
+            </div>
+            <div class="row">
+              <dt>Modalidad</dt>
+              <dd>{booking.mode === "retiro" ? "Retiro y devolución" : "La deja en el taller"}</dd>
+            </div>
+            <div class="row">
+              <dt>Nombre</dt>
+              <dd>{booking.customerName}</dd>
+            </div>
+            <div class="row">
+              <dt>Teléfono</dt>
+              <dd>
+                <a href={`tel:${booking.phoneE164}`}>{booking.phoneE164}</a>
+              </dd>
+            </div>
+            <div class="row">
+              <dt>Correo</dt>
+              <dd>
+                {booking.email ? <a href={`mailto:${booking.email}`}>{booking.email}</a> : "Sin correo"}
+              </dd>
+            </div>
+            <div class="row">
+              <dt>Bicicleta</dt>
+              <dd>{booking.bike}</dd>
+            </div>
+            <div class="row">
+              <dt>Qué necesita</dt>
+              <dd>{booking.description}</dd>
+            </div>
+            <div class="row">
+              <dt>Comuna / dirección</dt>
+              <dd>{booking.comuna ? `${booking.comuna} / ${booking.address ?? ""}` : "—"}</dd>
+            </div>
+            <div class="row">
+              <dt>Consentimiento</dt>
+              <dd class="mono">{localDate(booking.consentAt)}</dd>
+            </div>
+            <div class="row">
+              <dt>Consentimiento WhatsApp</dt>
+              <dd class="mono">
+                {booking.whatsappConsentAt ? localDate(booking.whatsappConsentAt) : "No otorgado"}
+              </dd>
             </div>
             {
-              booking.status === "confirmed" && (
-                <div class="ticket-foot" style="display:grid;gap:10px">
-                  <form method="post">
-                    <input type="hidden" name="accion" value="lista_para_retirar" />
-                    <button type="submit" class="btn">
-                      Marcar lista para retirar
-                    </button>
-                  </form>
-                  {canRetryReminder && (
-                    <form method="post">
-                      <input type="hidden" name="accion" value="reintentar_recordatorio_whatsapp" />
-                      <button type="submit" class="btn ghost">
-                        Reintentar recordatorio WhatsApp
-                      </button>
-                    </form>
-                  )}
-                  <form method="post">
-                    <input type="hidden" name="accion" value="completar" />
-                    <button type="submit" class="btn">
-                      Marcar completada
-                    </button>
-                  </form>
-                  <form method="post">
-                    <input type="hidden" name="accion" value="no_show" />
-                    <button type="submit" class="btn ghost">
-                      Marcar no-show
-                    </button>
-                  </form>
-                  <a href={`/taller/reservas/${booking.id}/reprogramar`} class="btn ghost">Reprogramar</a>
-                  <form method="post">
-                    <input type="hidden" name="accion" value="cancelar" />
-                    <button type="submit" class="btn ghost">
-                      Cancelar reserva
-                    </button>
-                  </form>
+              booking.cancelledAt && (
+                <div class="row">
+                  <dt>Cancelada</dt>
+                  <dd class="mono">
+                    {localDate(booking.cancelledAt)} ({booking.cancelledBy === "admin" ? "taller" : "cliente"})
+                  </dd>
                 </div>
               )
             }
+          </dl>
+          <section aria-labelledby="whatsapp-notices-title" style="padding:20px 24px;border-top:1px solid var(--line,#ddd)">
+            <h2 id="whatsapp-notices-title" style="font-size:1rem;margin:0 0 12px">Notificaciones WhatsApp</h2>
+            <p>{whatsappConfig.reason}</p>
             {
-              booking.status === "ready_for_pickup" && (
-                <div class="ticket-foot" style="display:grid;gap:10px">
-                  <form method="post">
-                    <input type="hidden" name="accion" value="completar" />
-                    <button type="submit" class="btn">
-                      Marcar completada
-                    </button>
-                  </form>
-                  {canRetryReady && (
-                    <form method="post">
-                      <input type="hidden" name="accion" value="reintentar_whatsapp" />
-                      <button type="submit" class="btn ghost">
-                        Reintentar notificación por WhatsApp
-                      </button>
-                    </form>
-                  )}
-                  <form method="post">
-                    <input type="hidden" name="accion" value="cancelar" />
-                    <button type="submit" class="btn ghost">
-                      Cancelar reserva
-                    </button>
-                  </form>
-                </div>
+              notices.length === 0 ? (
+                <p style="margin:0">Sin intentos de notificación registrados.</p>
+              ) : (
+                <ul style="display:grid;gap:12px;list-style:none;padding:0;margin:0">
+                  {notices.map((notice) => (
+                    <li style="display:grid;gap:4px">
+                      <strong>{notice.type === "reminder" ? "Recordatorio de reserva" : "Bicicleta lista para retirar"}</strong>
+                      <span>Estado: {noticeStatusLabel[notice.status] ?? notice.status} · Intentos: {notice.attempts}</span>
+                      <span>Registro: {localDate(notice.createdAt)}</span>
+                      {notice.sentAt && <span>Enviado: {localDate(notice.sentAt)}</span>}
+                      {notice.metaMessageId && <span class="mono">ID Meta: {notice.metaMessageId}</span>}
+                      {notice.reason && <span>{notice.reason}</span>}
+                      {notice.reconciliationNote && (
+                        <span>Conciliación: {notice.reconciliationNote}</span>
+                      )}
+                      {notice.status === "unknown" && (
+                        <strong role="alert">
+                          Verifica el resultado en Meta antes de reintentar. No se reintentará automáticamente.
+                        </strong>
+                      )}
+                      {notice.canReconcile && (
+                        <form method="post" style="display:grid;gap:10px;margin-top:8px">
+                          <input type="hidden" name="accion" value="resolver_whatsapp" />
+                          <input type="hidden" name="tipo" value={notice.type} />
+                          <label>
+                            Resultado comprobado en Meta
+                            <select name="outcome" required>
+                              <option value="sent">Meta confirma que fue enviado</option>
+                              <option value="not_sent">Meta confirma que no fue aceptado</option>
+                            </select>
+                          </label>
+                          <label>
+                            ID del mensaje de Meta (obligatorio si fue enviado)
+                            <input
+                              type="text"
+                              name="metaMessageId"
+                              maxlength="200"
+                              autocomplete="off"
+                            />
+                          </label>
+                          <label>
+                            Evidencia de verificación
+                            <textarea
+                              name="evidence"
+                              minlength="10"
+                              maxlength="1000"
+                              required
+                              rows="3"
+                            ></textarea>
+                          </label>
+                          <p role="note" style="margin:0">
+                            No marques “no aceptado” solo porque hubo un timeout. Comprueba el resultado real en Meta.
+                          </p>
+                          <p role="note" style="margin:0">
+                            No confirmes solo porque haya transcurrido tiempo: el proceso de envío o la ejecución del cron externo debe haber terminado o haberse detenido.
+                          </p>
+                          <label style="display:flex;gap:8px;align-items:flex-start">
+                            <input type="checkbox" name="verificado" value="true" required />
+                            Verifiqué el resultado real de esta notificación en Meta.
+                          </label>
+                          <label style="display:flex;gap:8px;align-items:flex-start">
+                            <input type="checkbox" name="worker_stopped" value="true" required />
+                            Confirmo que el proceso de envío y cualquier ejecución del cron externo terminaron o fueron detenidos.
+                          </label>
+                          <button type="submit" class="btn ghost">Guardar conciliación manual</button>
+                        </form>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               )
             }
-          </aside>
-        ) : (
-          <p>
-            <a href="/admin">Volver a la agenda</a>
-          </p>
-        )
-      }
-    </div>
-  </section>
-</Base>
+          </section>
+          <div class="ticket-total">
+            <span class="label">Recargo</span>
+            <strong>{formatClp(booking.pickupFeeClp)}</strong>
+          </div>
+          <BookingActions id={booking.id} status={booking.status} canRetryReminder={canRetryReminder} canRetryReady={canRetryReady} />
+        </Card>
+      ) : (
+        <p>
+          <a href="/admin">Volver a la agenda</a>
+        </p>
+      )
+    }
+  </div>
+</TallerLayout>
+
+<style is:global>
+  /* La columna de etiquetas de `.row` mide 96px en `global.css`, pensada para el ancho del sitio.
+     Dentro de la tarjeta del taller, "CONSENTIMIENTO" no cabe y se montaba sobre su valor. */
+  .taller .ticket-body .row {
+    grid-template-columns: 140px 1fr;
+  }
+</style>

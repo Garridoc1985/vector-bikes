@@ -1,6 +1,8 @@
 ---
 import MonthCalendar from "../../components/admin/MonthCalendar.astro";
-import Base from "../../layouts/Base.astro";
+import Card from "../../components/taller/Card.astro";
+import PageHeader from "../../components/taller/PageHeader.astro";
+import TallerLayout from "../../layouts/TallerLayout.astro";
 import {
   agendaForDate,
   holidayWarning,
@@ -32,23 +34,12 @@ const [agenda, overview] = await Promise.all([
 const warning = holidayWarning(now);
 ---
 
-<Base title="Agenda — Vector Bikes" description="Agenda del taller." path="/admin" chrome="none" noindex>
-  <section class="section">
-    <div class="wrap">
-      <nav class="nav" aria-label="Panel" style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-bottom:28px">
-        <a href="/admin" aria-current="page">Agenda</a>
-        <a href="/admin/bloqueos">Bloqueos</a>
-        <a href="/taller">Taller</a>
-        <form method="post" action="/admin/logout">
-          <button type="submit" class="btn ghost">Salir</button>
-        </form>
-      </nav>
-      <div class="sec-head">
-        <span class="label">Panel del taller</span>
-        <h1>Agenda</h1>
-      </div>
-      {warning && <p role="status" style="margin-bottom:20px;font-weight:600">{warning}</p>}
-      <MonthCalendar month={overview} selected={date} />
+<TallerLayout title="Agenda — Vector Bikes" description="Agenda del taller." path="/admin" user={admin}>
+  <div class="stack">
+    <PageHeader title="Agenda" subtitle="Panel del taller" />
+    {warning && <p role="status" style="margin-bottom:20px;font-weight:600">{warning}</p>}
+    <Card><MonthCalendar month={overview} selected={date} /></Card>
+    <Card>
       <form method="get" action="/admin" style="display:flex;gap:14px;align-items:end;flex-wrap:wrap;margin-bottom:20px">
         <div class="field">
           <label for="fecha">Fecha</label>
@@ -102,13 +93,20 @@ const warning = holidayWarning(now);
           </div>
         )
       }
-    </div>
-  </section>
-</Base>
+    </Card>
+  </div>
+</TallerLayout>
 
-<style>
-  .agenda th,
-  .agenda td {
+<style is:global>
+  .taller .agenda {
+    font-variant-numeric: tabular-nums;
+  }
+  .taller .month-nav .btn {
+    min-height: 48px;
+    min-width: 48px;
+  }
+  .taller .agenda th,
+  .taller .agenda td {
     font-family: inherit;
     text-align: left;
     padding-right: 16px;
