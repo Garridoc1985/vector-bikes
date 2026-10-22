@@ -29,7 +29,7 @@ export async function readRange(
     .from(blockedPeriods)
     .where(between(blockedPeriods.serviceDate, from, to));
   const used = await db
-    .select({ serviceDate: bookings.serviceDate, n: sql<number>`count(*)` })
+    .select({ serviceDate: bookings.serviceDate, n: sql<number>`sum(${bookings.bikeCount})` })
     .from(bookings)
     .where(and(between(bookings.serviceDate, from, to), ne(bookings.status, "cancelled")))
     .groupBy(bookings.serviceDate);

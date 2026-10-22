@@ -60,6 +60,7 @@ export const workOrders = pgTable(
     taxDocType: text("tax_doc_type"),
     taxDocNumber: text("tax_doc_number"),
     taxDocDate: date("tax_doc_date", { mode: "string" }),
+    bookingPosition: integer("booking_position").notNull().default(1),
     receivedAt: instant("received_at"),
     deliveredAt: instant("delivered_at"),
     voidedAt: instant("voided_at"),
@@ -70,13 +71,14 @@ export const workOrders = pgTable(
   },
   (t) => [
     uniqueIndex("uq_work_orders_branch_number").on(t.branchId, t.number),
-    uniqueIndex("uq_work_orders_booking").on(t.bookingId),
+    uniqueIndex("uq_work_orders_booking_position").on(t.bookingId, t.bookingPosition),
     index("idx_work_orders_branch_status").on(t.branchId, t.status),
     index("idx_work_orders_mechanic_status").on(t.assignedMechanicId, t.status),
     index("idx_work_orders_bike").on(t.bikeId),
     index("idx_work_orders_customer").on(t.customerId),
     index("idx_work_orders_branch_delivery_date").on(t.branchId, t.estimatedDeliveryDate),
     check("work_orders_number_check", sql`number >= 1`),
+    check("work_orders_booking_position_check", sql`booking_position between 1 and 3`),
     check(
       "work_orders_status_check",
       sql`status in ('reservada', 'recibida', 'diagnostico', 'esperando_aprobacion', 'esperando_repuesto', 'en_reparacion', 'control_calidad', 'lista_para_retirar', 'entregada', 'cancelada', 'trabajo_rechazado')`,

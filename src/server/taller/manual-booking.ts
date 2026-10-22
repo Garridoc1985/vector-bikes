@@ -139,9 +139,15 @@ export function listUpcomingBookings(db: AppDb, today: string, days = 14) {
     .orderBy(asc(bookings.serviceDate), asc(bookings.startsAt), asc(bookings.id));
 }
 
-export async function freeBlocks(db: AppDb, date: string, mode: BookingMode, now: Date) {
+export async function freeBlocks(
+  db: AppDb,
+  date: string,
+  mode: BookingMode,
+  now: Date,
+  bikeCount = 1,
+) {
   const dayData = await readRange(db, date, date);
-  return computeDay({ date, mode, now, ...dayData(date) }).blocks.filter(
+  return computeDay({ date, mode, now, bikeCount, ...dayData(date) }).blocks.filter(
     (block) => block.state === "free",
   );
 }

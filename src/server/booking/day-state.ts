@@ -21,7 +21,8 @@ export async function readDay(tx: Tx, serviceDate: string, excludeBookingId?: st
     .from(blockedPeriods)
     .where(eq(blockedPeriods.serviceDate, serviceDate));
   const [used] = await tx
-    .select({ n: sql<number>`count(*)` })
+    // El cupo del día cuenta bicicletas, no reservas: una de tres ocupa tres de los cuatro.
+    .select({ n: sql<number>`coalesce(sum(${bookings.bikeCount}), 0)` })
     .from(bookings)
     .where(
       and(

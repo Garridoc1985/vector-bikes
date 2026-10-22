@@ -154,6 +154,7 @@ async function rescheduleInTransaction(
     mode: bookingMode(booking.mode),
     now,
     start: args.start,
+    bikeCount: booking.bikeCount,
     ...day,
   });
   if (!slot.ok) return { ok: false, code: "slot_unavailable" };

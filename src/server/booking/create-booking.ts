@@ -1,6 +1,6 @@
 import { and, eq, gt, inArray, like, or, sql } from "drizzle-orm";
 import { type AppDb, isUniqueViolation } from "../db/client.ts";
-import { type Booking, bookingBlocks, bookingDays, bookings } from "../db/schema.ts";
+import { type Booking, bookingBikes, bookingBlocks, bookingDays, bookings } from "../db/schema.ts";
 import { readDay } from "./day-state.ts";
 import { PICKUP_FEE_CLP } from "./rules.ts";
 import type { BookingMode } from "./rules.ts";
@@ -23,6 +23,8 @@ export type CreateBookingInput = {
   ipHash: string | null;
   whatsappConsent?: boolean;
   source?: BookingSource;
+  /** De 1 a 3. Sin lista, la reserva es de una bici y se comporta como la de la web. */
+  bikes?: { bike: string; description: string }[];
 };
 
 export type CreateBookingResult =
@@ -62,8 +64,9 @@ async function insertBooking(
       customerName: input.customerName,
       phoneE164: input.phoneE164,
       email: input.email,
-      bike: input.bike,
-      description: input.description,
+      bikeCount: input.bikes?.length ?? 1,
+      bike: input.bikes?.[0]?.bike ?? input.bike,
+      description: input.bikes?.[0]?.description ?? input.description,
       comuna: input.comuna,
       address: input.address,
       pickupFeeClp: input.mode === "retiro" ? PICKUP_FEE_CLP : 0,
@@ -86,6 +89,18 @@ async function insertBooking(
       isActive: true,
     })),
   );
+
+  const extra = (input.bikes ?? []).slice(1);
+  if (extra.length > 0) {
+    await tx.insert(bookingBikes).values(
+      extra.map((bike, index) => ({
+        bookingId: booking.id,
+        position: index + 2,
+        bike: bike.bike,
+        description: bike.description,
+      })),
+    );
+  }
 
   return booking;
 }
@@ -132,6 +147,7 @@ export async function createBooking(
         mode: input.mode,
         now,
         start: input.start,
+        bikeCount: input.bikes?.length ?? 1,
         ...day,
       });
       if (!slot.ok) {

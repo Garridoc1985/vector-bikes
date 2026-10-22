@@ -1,0 +1,1 @@
+ALTER TABLE "work_orders" ADD CONSTRAINT "work_orders_booking_position_check" CHECK (booking_position between 1 and 3);

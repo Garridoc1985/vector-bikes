@@ -3,7 +3,7 @@ import { HOLIDAYS } from "./holidays.ts";
 import {
   BLOCK_MINUTES,
   type BookingMode,
-  BLOCKS_PER_MODE,
+  blocksFor,
   DAILY_CAPACITY,
   HORIZON_DAYS,
   hoursFor,
@@ -21,6 +21,8 @@ export type DayInput = {
   activeBlockStarts: string[];
   blocked: { startTime: string | null; endTime: string | null }[];
   usedCount: number;
+  /** Bicicletas de esta reserva. Sin declarar es 1: así consultan la web y `/api/disponibilidad`. */
+  bikeCount?: number;
 };
 
 export type DayAvailability = {
@@ -121,8 +123,10 @@ function stateFor(input: DayInput, grid: string[], index: number, start: string)
   if (isLate(input.date, start, input.now)) {
     return "late";
   }
-  if (input.mode === "retiro") {
-    const next = grid[index + 1];
+  // Una reserva ocupa varios bloques seguidos: el retiro dos, y el taller uno por bici. Si los que
+  // siguen no existen en la grilla o están tomados, este inicio no sirve.
+  for (let ahead = 1; ahead < blocksFor(input.mode, input.bikeCount); ahead += 1) {
+    const next = grid[index + ahead];
     if (next === undefined || isTaken(input, next)) {
       return "noroom";
     }
@@ -169,7 +173,7 @@ export function computeDay(input: DayInput): DayAvailability {
     return closed(closure.status, closure.holidayName);
   }
   const grid = gridForDate(input.date, input.mode);
-  if (input.usedCount >= DAILY_CAPACITY) {
+  if (input.usedCount + (input.bikeCount ?? 1) > DAILY_CAPACITY) {
     return closed("full");
   }
   return {
@@ -200,7 +204,7 @@ export function checkStart(input: DayInput & { start: string }): CheckStartResul
   if (startsAt === null) {
     return { ok: false, reason: "invalid_start" };
   }
-  const count = BLOCKS_PER_MODE[input.mode];
+  const count = blocksFor(input.mode, input.bikeCount);
   const blockStarts = grid.slice(index, index + count);
   return {
     ok: true,

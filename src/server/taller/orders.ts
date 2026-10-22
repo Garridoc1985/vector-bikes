@@ -5,7 +5,7 @@ import { can } from "../auth/permissions.ts";
 import type { AppDb } from "../db/client.ts";
 import { workOrders, workOrderStatusHistory } from "../db/schema-orders.ts";
 import { bikes, customers } from "../db/schema-taller.ts";
-import { bookings } from "../db/schema.ts";
+import { bookingBikes, bookings } from "../db/schema.ts";
 import { recordAudit } from "./audit.ts";
 import { bikeFormSchema, insertBike, listBikesOfCustomer } from "./bikes.ts";
 import { customerFormSchema, findCustomerByPhone, insertCustomer } from "./customers.ts";
@@ -54,11 +54,33 @@ export async function recordStatusChange(db: AppDb, change: StatusChange, now: D
   return { ok: true } as const;
 }
 
+async function nextBookingBike(
+  db: AppDb,
+  actor: SessionUser,
+  booking: { id: string; bike: string; description: string },
+): Promise<{ bike: string; description: string }> {
+  const [taken] = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(workOrders)
+    .where(and(eq(workOrders.branchId, actor.branchId), eq(workOrders.bookingId, booking.id)));
+  const position = Number(taken?.n ?? 0) + 1;
+  if (position <= 1) return { bike: booking.bike, description: booking.description };
+  const [extra] = await db
+    .select({ bike: bookingBikes.bike, description: bookingBikes.description })
+    .from(bookingBikes)
+    .where(and(eq(bookingBikes.bookingId, booking.id), eq(bookingBikes.position, position)))
+    .limit(1);
+  return extra ?? { bike: booking.bike, description: booking.description };
+}
+
 export async function prefillFromBooking(db: AppDb, actor: SessionUser, bookingId: string) {
   const [booking] = await db.select().from(bookings).where(eq(bookings.id, bookingId)).limit(1);
   if (!booking) return null;
   const customer = await findCustomerByPhone(db, actor, booking.phoneE164);
-  const [brand = "", ...model] = booking.bike.trim().split(/\s+/);
+  // La bici que toca es la de la posición siguiente a las que ya tienen orden. La 1 vive en la
+  // reserva misma; las demás, en `booking_bikes`.
+  const next = await nextBookingBike(db, actor, booking);
+  const [brand = "", ...model] = next.bike.trim().split(/\s+/);
   return {
     booking,
     existingCustomer: customer
@@ -74,7 +96,7 @@ export async function prefillFromBooking(db: AppDb, actor: SessionUser, bookingI
       email: booking.email,
       brand,
       model: model.join(" "),
-      requestedService: booking.description,
+      requestedService: next.description,
     },
   };
 }
@@ -115,20 +137,32 @@ class ReceptionError extends Error {
   }
 }
 
-async function requireAvailableBooking(db: AppDb, actor: SessionUser, bookingId: string | null) {
-  if (bookingId === null) return;
+/**
+ * Posición que le toca a esta recepción, o `booking_taken` si la reserva ya no tiene bicis
+ * pendientes. El lock de la reserva serializa dos recepciones simultáneas; el índice único
+ * `uq_work_orders_booking_position` es la garantía final si algo se cuela.
+ */
+async function requireAvailableBooking(
+  db: AppDb,
+  actor: SessionUser,
+  bookingId: string | null,
+): Promise<number> {
+  if (bookingId === null) return 1;
   const [booking] = await db
-    .select({ id: bookings.id })
+    .select({ id: bookings.id, bikeCount: bookings.bikeCount })
     .from(bookings)
     .where(eq(bookings.id, bookingId))
     .for("update");
   if (!booking) throw new ReceptionError({ ok: false, code: "booking_taken" });
-  const [order] = await db
-    .select({ id: workOrders.id })
+  const [taken] = await db
+    .select({ n: sql<number>`count(*)` })
     .from(workOrders)
-    .where(and(eq(workOrders.branchId, actor.branchId), eq(workOrders.bookingId, bookingId)))
-    .limit(1);
-  if (order) throw new ReceptionError({ ok: false, code: "booking_taken" });
+    .where(and(eq(workOrders.branchId, actor.branchId), eq(workOrders.bookingId, bookingId)));
+  const already = Number(taken?.n ?? 0);
+  if (already >= booking.bikeCount) {
+    throw new ReceptionError({ ok: false, code: "booking_taken" });
+  }
+  return already + 1;
 }
 
 async function receptionCustomer(db: AppDb, actor: SessionUser, input: ReceptionInput, now: Date) {
@@ -181,7 +215,7 @@ async function insertReceptionOrder(
   input: ReceptionInput,
   now: Date,
 ) {
-  await requireAvailableBooking(db, actor, input.bookingId);
+  const bookingPosition = await requireAvailableBooking(db, actor, input.bookingId);
   const customer = await receptionCustomer(db, actor, input, now);
   const bike = await receptionBike(db, actor, customer.id, input, now);
   const number = await allocateOrderNumber(db, actor.branchId);
@@ -193,6 +227,7 @@ async function insertReceptionOrder(
       customerId: customer.id,
       bikeId: bike.id,
       bookingId: input.bookingId,
+      bookingPosition,
       status: "reservada",
       requestedService: input.requestedService,
       createdBy: actor.id,
@@ -200,7 +235,7 @@ async function insertReceptionOrder(
       createdAt: now,
       updatedAt: now,
     })
-    .onConflictDoNothing({ target: workOrders.bookingId })
+    .onConflictDoNothing({ target: [workOrders.bookingId, workOrders.bookingPosition] })
     .returning();
   if (!order) throw new ReceptionError({ ok: false, code: "booking_taken" });
   return order;
