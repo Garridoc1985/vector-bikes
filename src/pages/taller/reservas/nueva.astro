@@ -94,6 +94,8 @@ const blocks =
   requested && selected.success
     ? await freeBlocks(db, selected.data.service_date, selected.data.mode, now, selected.data.bicis)
     : [];
+// Con una sola bici los rótulos quedan como siempre; con dos o tres, la primera también se numera.
+const several = selected.success && selected.data.bicis > 1;
 const extraBikes = [2, 3]
   .filter((index) => selected.success && index <= selected.data.bicis)
   .map((index) => ({
@@ -194,13 +196,13 @@ const fields: {
             </div>
             {fields.map((field) => (
               <div class="field">
-                <label for={field.key}>{field.label}</label>
+                <label for={field.key}>{several && field.key === "bicicleta" ? "Bicicleta 1" : field.label}</label>
                 <input id={field.key} name={field.key} type={field.type} required={field.required} maxlength={field.maxlength} autocomplete={field.autocomplete} value={values[field.key] ?? ""} aria-invalid={Boolean(fieldErrors[field.key])} aria-describedby={fieldErrors[field.key] ? `${field.key}-error` : undefined} />
                 {fieldErrors[field.key] && <p id={`${field.key}-error`}>{fieldErrors[field.key]}</p>}
               </div>
             ))}
             <div class="field">
-              <label for="descripcion">Qué necesita la bicicleta</label>
+              <label for="descripcion">{several ? "Qué necesita la bici 1" : "Qué necesita la bicicleta"}</label>
               <textarea id="descripcion" name="descripcion" required minlength="5" maxlength="1000" rows="3" aria-invalid={Boolean(fieldErrors.descripcion)} aria-describedby={fieldErrors.descripcion ? "descripcion-error" : undefined}>{values.descripcion ?? ""}</textarea>
               {fieldErrors.descripcion && <p id="descripcion-error">{fieldErrors.descripcion}</p>}
             </div>

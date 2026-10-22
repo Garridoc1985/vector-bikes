@@ -65,16 +65,23 @@ const sourceLabels: Record<string, string> = {
               <td>{DateTime.fromISO(booking.serviceDate).toFormat("dd/MM/yyyy")}</td>
               <td>{DateTime.fromJSDate(booking.startsAt).setZone(TIMEZONE).toFormat("HH:mm")}</td>
               <th scope="row">{booking.customerName}</th>
-              <td>{booking.phoneE164}</td><td>{booking.bike}</td><td>{sourceLabels[booking.source]}</td>
+              <td>{booking.phoneE164}</td><td>{booking.bike}{booking.bikeCount > 1 && <span class="label"> · {booking.bikeCount} bicis</span>}</td><td>{sourceLabels[booking.source]}</td>
               <td>
-                {booking.orderId && booking.orderNumber !== null ? (
-                  <a class="btn ghost" href={`/taller/ordenes/${booking.orderId}/recepcion`}>{formatOrderNumber(booking.orderNumber)}</a>
-                ) : (
-                  <div class="booking-actions">
-                    <a class="btn ghost" href={`/taller/recepcion/nueva?reserva=${booking.id}`}>Recibir</a>
+                <div class="booking-actions">
+                  {booking.orders.map((order) => (
+                    <a class="btn ghost" href={`/taller/ordenes/${order.id}/recepcion`}>{formatOrderNumber(order.number)}</a>
+                  ))}
+                  {booking.orders.length < booking.bikeCount && (
+                    <a class="btn ghost" href={`/taller/recepcion/nueva?reserva=${booking.id}`}>
+                      {booking.bikeCount === 1
+                        ? "Recibir"
+                        : `Recibir (${booking.orders.length + 1} de ${booking.bikeCount})`}
+                    </a>
+                  )}
+                  {booking.orders.length === 0 && (
                     <a class="btn ghost" href={`/taller/reservas/${booking.id}/reprogramar`}>Reprogramar</a>
-                  </div>
-                )}
+                  )}
+                </div>
               </td>
             </tr>
           ))}

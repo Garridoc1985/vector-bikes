@@ -154,16 +154,15 @@ export async function createManualBooking(
   return result;
 }
 
-// bookings es la agenda única de la sucursal; no tiene branch_id.
-export function listUpcomingBookings(db: AppDb, today: string, days = 14) {
-  return db
-    .select({
-      ...getTableColumns(bookings),
-      orderId: workOrders.id,
-      orderNumber: workOrders.number,
-    })
+/**
+ * Reservas próximas con las órdenes que ya se abrieron para cada una. Son dos consultas y no un
+ * `leftJoin`: una reserva de tres bicis admite tres órdenes, y el join la repetiría una vez por
+ * orden. `bookings` es la agenda única de la sucursal; no tiene `branch_id`.
+ */
+export async function listUpcomingBookings(db: AppDb, today: string, days = 14) {
+  const rows = await db
+    .select(getTableColumns(bookings))
     .from(bookings)
-    .leftJoin(workOrders, eq(workOrders.bookingId, bookings.id))
     .where(
       and(
         between(bookings.serviceDate, today, addDays(today, days - 1)),
@@ -171,6 +170,28 @@ export function listUpcomingBookings(db: AppDb, today: string, days = 14) {
       ),
     )
     .orderBy(asc(bookings.serviceDate), asc(bookings.startsAt), asc(bookings.id));
+  if (rows.length === 0) return [];
+  const orders = await db
+    .select({
+      id: workOrders.id,
+      number: workOrders.number,
+      bookingId: workOrders.bookingId,
+      position: workOrders.bookingPosition,
+    })
+    .from(workOrders)
+    .where(
+      inArray(
+        workOrders.bookingId,
+        rows.map((row) => row.id),
+      ),
+    )
+    .orderBy(asc(workOrders.bookingPosition));
+  return rows.map((row) => ({
+    ...row,
+    orders: orders
+      .filter((order) => order.bookingId === row.id)
+      .map(({ id, number, position }) => ({ id, number, position })),
+  }));
 }
 
 export async function freeBlocks(
