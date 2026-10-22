@@ -70,6 +70,10 @@ Entra por `/admin/login` con tu correo y clave y abre `/taller`. También puedes
 
 Solo el dueño administra el equipo en `/taller/usuarios`: crea usuarios con nombre, correo, rol y clave inicial de 12 a 1024 caracteres. Desde la misma pantalla puede cambiar el rol, desactivar, reactivar y restablecer claves de otros usuarios. Desactivar o cambiar el rol revoca sus sesiones. No puedes modificar tu propio usuario ahí y debe quedar al menos un dueño activo en la sucursal.
 
+### Reservas
+
+Las reservas próximas están en `/taller/reservas`. Para cambiar el día o la hora de una, pulsa **Reprogramar**: elige el día, revisa los bloques libres y confirma. La reserva mantiene su código y su enlace de cancelación, así que el cliente sigue usando los mismos, y si tiene correo registrado recibe un aviso con el horario anterior, el nuevo y el calendario actualizado. Solo se reprograman reservas confirmadas que todavía no tienen orden de trabajo; si la bici ya se recibió, hay que cancelar y crear otra. Para cambiar la modalidad, la comuna o los datos del cliente también se cancela y se crea otra.
+
 ### Recepción en la tablet
 
 La recepción la puede hacer cualquier rol, incluido el mecánico. El mecánico accede a sus órdenes y a las recepciones sin asignar en estado Reservada, Recibida o Diagnóstico.
