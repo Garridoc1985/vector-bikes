@@ -6,6 +6,7 @@ import {
   removeFromQueue,
 } from "../../lib/photo-queue.ts";
 import type { QueuedPhoto, UploadOutcome } from "../../lib/photo-queue.ts";
+import CameraCapture from "./CameraCapture.tsx";
 
 interface Props {
   uploadUrl: string;
@@ -189,6 +190,10 @@ function selectFiles(event: Event, photos: PhotoQueue, upload: PhotoUpload) {
   const input = event.currentTarget as HTMLInputElement;
   const files = Array.from(input.files ?? []);
   input.value = "";
+  queueFiles(files, photos, upload);
+}
+
+function queueFiles(files: File[], photos: PhotoQueue, upload: PhotoUpload) {
   if (upload.busy.current || files.length === 0) return;
   const result = addToQueue(photos.current.current, files);
   photos.replaceQueue(result.queue);
@@ -205,7 +210,11 @@ interface PickerProps {
 
 function PhotoPicker({ label, camera, disabled, onChange }: PickerProps) {
   return (
-    <label class="btn tap" style={{ ...touchStyle, position: "relative" }} aria-disabled={disabled}>
+    <label
+      class="btn ghost"
+      style={{ ...touchStyle, position: "relative" }}
+      aria-disabled={disabled}
+    >
       {label}
       <input
         type="file"
@@ -307,6 +316,12 @@ function PhotoControls({ photos, upload, label }: QueueViewProps & { label?: str
   const onChange = (event: Event) => selectFiles(event, photos, upload);
   return (
     <>
+      <CameraCapture
+        onCapture={(files) => queueFiles(files, photos, upload)}
+        queued={photos.queue.length}
+        max={MAX_QUEUED_PHOTOS}
+        disabled={disabled}
+      />
       <PhotoPicker label={label ?? "Tomar foto"} camera disabled={disabled} onChange={onChange} />
       <PhotoPicker label="Elegir de la galería" disabled={disabled} onChange={onChange} />
     </>

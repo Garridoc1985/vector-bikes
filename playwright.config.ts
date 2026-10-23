@@ -28,6 +28,12 @@ export default defineConfig({
       name: "tablet",
       use: {
         browserName: "chromium",
+        // Cámara simulada para el spec de captura en la página: entrega un video de prueba y
+        // acepta el permiso sin diálogo. Excepción autorizada por el dueño el 2026-10-23, acotada
+        // a estos dos flags (ver decisión 46).
+        launchOptions: {
+          args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
+        },
         viewport: { width: 820, height: 1180 },
         deviceScaleFactor: 2,
         isMobile: true,
