@@ -188,3 +188,22 @@ it("en fotos y firma el aviso nombra los puntos que faltan y lleva al checklist"
   expect(html).not.toContain(">Frenos<");
   expect(html).toContain("/recepcion#checklist");
 });
+
+it("una fecha estimada ya pasada no bloquea el resto del formulario", async () => {
+  // Con un solo form, el navegador valida todos los campos en cada envío: un `min` en la fecha
+  // dejaría a "Guardar checklist" bloqueado por un globo en un campo que nadie tocó. La regla
+  // vive en el servidor (`invalid_date`), así que el input no lleva `min`.
+  await db
+    .update(workOrders)
+    .set({ estimatedDeliveryDate: "2026-10-01" })
+    .where(eq(workOrders.id, orderId));
+
+  const html = await (await render()).text();
+  const campo = html.slice(html.indexOf('id="delivery-date"'));
+  expect(campo.slice(0, campo.indexOf(">"))).not.toContain("min=");
+
+  const guardado = await render(base({ accion: "checklist", frenos: "ok" }));
+
+  expect(guardado.status).toBe(303);
+  expect(await guardados()).toEqual(["frenos"]);
+});

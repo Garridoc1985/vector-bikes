@@ -297,7 +297,7 @@ const tabs = ORDER_TABS.filter((tab) => can(user.role, tab.permission));
       {order.deliveryDateConfirmedAt && <p role="status">Fecha confirmada: {order.estimatedDeliveryDate}</p>}
         <div class="field">
           <label for="delivery-date">Fecha de entrega</label>
-          <input id="delivery-date" name="date" type="date" min={today} value={submitted.date ?? order.estimatedDeliveryDate ?? suggestedDate} aria-invalid={Boolean(fieldErrors.date)} aria-describedby={fieldErrors.date ? "delivery-date-error" : undefined} />
+          <input id="delivery-date" name="date" type="date" value={submitted.date ?? order.estimatedDeliveryDate ?? suggestedDate} aria-invalid={Boolean(fieldErrors.date)} aria-describedby={fieldErrors.date ? "delivery-date-error" : undefined} />
           {fieldErrors.date && <p id="delivery-date-error">{fieldErrors.date}</p>}
         </div>
         <button type="submit" name="accion" value="fecha" class="btn">Confirmar fecha</button>
