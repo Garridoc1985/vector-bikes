@@ -95,6 +95,19 @@ async function deliver(
  * nada más: la operación ya está escrita y su auditoría depende del correo al cliente, no de esta
  * copia, que tampoco se reintenta.
  */
+/**
+ * La nota entra justo después de la apertura de `<body>`: `renderHtml` devuelve un documento
+ * completo, así que anteponerla la dejaría antes del doctype, fuera del cuerpo y sin el estilo del
+ * correo. Si algún día el cuerpo no trae `<body>`, se antepone, que es mejor que perderla.
+ */
+function withNote(html: string, note: string): string {
+  const paragraph = `<p style="margin:0 0 12px;line-height:1.55">${escapeHtml(note)}</p>`;
+  const body = /<body[^>]*>/.exec(html);
+  if (!body) return `${paragraph}${html}`;
+  const at = body.index + body[0].length;
+  return `${html.slice(0, at)}${paragraph}${html.slice(at)}`;
+}
+
 export async function sendShopCopy(
   transport: EmailTransport,
   env: EmailEnv,
@@ -108,7 +121,7 @@ export async function sendShopCopy(
       to: env.SHOP_NOTIFY_EMAIL,
       subject: `Copia · ${email.subject}`,
       text: `${note}\n\n${email.text}`,
-      html: `<p style="margin:0 0 12px;line-height:1.55">${escapeHtml(note)}</p>${email.html}`,
+      html: withNote(email.html, note),
     });
   } catch (error) {
     log.error("email.shop_copy_failed", { code: orderCode, message: errorMessage(error) });

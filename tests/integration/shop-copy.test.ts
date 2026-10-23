@@ -153,7 +153,12 @@ it("el taller recibe una copia del correo de recepción", async () => {
   expect(copia?.to).toBe(TALLER);
   expect(copia?.subject).toBe(`Copia · ${cliente?.subject}`);
   expect(copia?.text.startsWith(`Copia del correo enviado a ${CLIENTE}.`)).toBe(true);
-  expect(copia?.html).toContain(`Copia del correo enviado a ${CLIENTE}.`);
+  // La nota va dentro del documento, no pegada antes del doctype: así sale dentro del <body>,
+  // con el estilo del resto del correo, y el HTML sigue siendo válido.
+  expect(copia?.html.startsWith("<!doctype html>")).toBe(true);
+  const cuerpo = copia?.html.slice(copia.html.indexOf("<body")) ?? "";
+  expect(cuerpo).toContain(`Copia del correo enviado a ${CLIENTE}.`);
+  expect(copia?.html.slice(0, copia.html.indexOf("<body"))).not.toContain("Copia del correo");
   // El resto del cuerpo es el mismo que vio el cliente.
   expect(copia?.text).toContain(cliente?.text ?? "nada");
   expect(cliente?.text).not.toContain("Copia del correo");
