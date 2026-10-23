@@ -82,7 +82,7 @@ La recepción la puede hacer cualquier rol, incluido el mecánico. El mecánico 
 
 1. Abre **Nueva recepción** en `/taller/recepcion/nueva`, o inicia la recepción desde una reserva en `/taller/reservas` para traer sus datos.
 2. Busca al cliente por nombre, teléfono o RUT y usa su ficha y bicicleta. Si es nuevo, registra nombre y teléfono; correo y RUT son opcionales. Para una bicicleta nueva, completa marca, modelo y tipo. Escribe el servicio solicitado y pulsa **Crear orden**.
-3. Completa todos los puntos del **Checklist**, anota observaciones y guarda. Registra los accesorios que quedan con la bici y agrega los servicios del catálogo; el precio corresponde al tipo de bicicleta. El mecánico puede agregar servicios del catálogo, pero no cambiar precios.
+3. Completa todos los puntos del **Checklist**, anota observaciones y guarda. Lo marcado ya no se pierde: cualquier botón de la página guarda primero el checklist, el aviso dice cuántos puntos van de 7 y nombra los que faltan, y cada punto sin guardar aparece como «Pendiente». Registra los accesorios que quedan con la bici y agrega los servicios del catálogo; el precio corresponde al tipo de bicicleta. El mecánico puede agregar servicios del catálogo, pero no cambiar precios.
 4. Revisa la fecha sugerida según la carga del taller y pulsa **Confirmar fecha** con la fecha acordada con el cliente.
 5. Pulsa **Continuar a fotos y firma**. Toma al menos una foto de recepción y espera a que termine de subir. Pide la firma del cliente en la tablet y escribe el nombre de quien firma.
 6. Pulsa **Finalizar recepción**. Solo se completa con checklist, foto, fecha confirmada y firma; la orden queda **Recibida**. Si faltan datos, la pantalla los indica.
