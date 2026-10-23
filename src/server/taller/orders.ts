@@ -36,7 +36,6 @@ type StatusChange = {
   actorUserId: string | null;
   note?: string;
 };
-
 export async function recordStatusChange(db: AppDb, change: StatusChange, now: Date) {
   if (change.from !== null && !isAllowedTransition(change.from, change.to)) {
     return { ok: false, code: "invalid_transition" } as const;
@@ -53,7 +52,6 @@ export async function recordStatusChange(db: AppDb, change: StatusChange, now: D
   });
   return { ok: true } as const;
 }
-
 async function nextBookingBike(
   db: AppDb,
   actor: SessionUser,
@@ -72,7 +70,6 @@ async function nextBookingBike(
     .limit(1);
   return extra ?? { bike: booking.bike, description: booking.description };
 }
-
 export async function prefillFromBooking(db: AppDb, actor: SessionUser, bookingId: string) {
   const [booking] = await db.select().from(bookings).where(eq(bookings.id, bookingId)).limit(1);
   if (!booking) return null;
@@ -100,7 +97,6 @@ export async function prefillFromBooking(db: AppDb, actor: SessionUser, bookingI
     },
   };
 }
-
 export const startReceptionSchema = z
   .object({
     bookingId: z.uuid({ error: "Selecciona una reserva válida." }).nullable().default(null),
@@ -122,13 +118,11 @@ export const startReceptionSchema = z
     path: ["bikeId"],
     message: "Selecciona una bicicleta o ingresa una nueva.",
   });
-
 type ReceptionInput = z.infer<typeof startReceptionSchema>;
 type ReceptionFailure =
   | { ok: false; code: "forbidden" | "booking_taken" | "not_found" | "validation_error" }
   | { ok: false; code: "duplicate"; existing: { id: string; name: string } | null };
 type ReceptionResult = { ok: true; orderId: string; number: number } | ReceptionFailure;
-
 class ReceptionError extends Error {
   result: ReceptionFailure;
   constructor(result: ReceptionFailure) {
@@ -136,7 +130,6 @@ class ReceptionError extends Error {
     this.result = result;
   }
 }
-
 /**
  * Posición que le toca a esta recepción, o `booking_taken` si la reserva ya no tiene bicis
  * pendientes. El lock de la reserva serializa dos recepciones simultáneas; el índice único
@@ -164,7 +157,6 @@ async function requireAvailableBooking(
   }
   return already + 1;
 }
-
 async function receptionCustomer(db: AppDb, actor: SessionUser, input: ReceptionInput, now: Date) {
   if (input.customerId !== null) {
     const [customer] = await db
@@ -180,7 +172,6 @@ async function receptionCustomer(db: AppDb, actor: SessionUser, input: Reception
   if (!result.ok) throw new ReceptionError(result);
   return result.customer;
 }
-
 async function receptionBike(
   db: AppDb,
   actor: SessionUser,
@@ -208,7 +199,6 @@ async function receptionBike(
   if (!result.ok) throw new ReceptionError(result);
   return result.bike;
 }
-
 async function insertReceptionOrder(
   db: AppDb,
   actor: SessionUser,
@@ -240,7 +230,6 @@ async function insertReceptionOrder(
   if (!order) throw new ReceptionError({ ok: false, code: "booking_taken" });
   return order;
 }
-
 export async function startReception(
   db: AppDb,
   actor: SessionUser,
@@ -283,7 +272,6 @@ export async function startReception(
     throw error;
   }
 }
-
 export async function getOrderHeader(db: AppDb, actor: SessionUser, id: string) {
   const [header] = await db
     .select({ order: workOrders, customer: customers, bike: bikes })
@@ -297,13 +285,11 @@ export async function getOrderHeader(db: AppDb, actor: SessionUser, id: string) 
     .limit(1);
   return header ?? null;
 }
-
 export const taxDocSchema = z.strictObject({
   type: z.enum(TAX_DOC_TYPES),
   number: z.string().trim().min(1).max(30),
   date: z.iso.date(),
 });
-
 export async function updateTaxDocument(
   db: AppDb,
   actor: SessionUser,
@@ -342,7 +328,6 @@ export async function updateTaxDocument(
     return { ok: true } as const;
   });
 }
-
 async function recordWarrantyOpening(
   db: AppDb,
   actor: SessionUser,
@@ -364,7 +349,6 @@ async function recordWarrantyOpening(
     now,
   );
 }
-
 export async function openWarrantyOrder(
   db: AppDb,
   actor: SessionUser,

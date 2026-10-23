@@ -30,6 +30,8 @@ import {
   voidAccessory,
 } from "../../../../server/taller/intake.ts";
 import { formatOrderNumber, getOrderHeader } from "../../../../server/taller/orders.ts";
+import { nextBookingReception } from "../../../../server/taller/booking-reception.ts";
+import { receptionSignature } from "../../../../server/taller/reception.ts";
 import {
   BIKE_TYPE_LABELS,
   INTAKE_CHECK_KEYS,
@@ -194,11 +196,33 @@ const values: Record<string, string> = {
   ...submitted,
 };
 const tabs = ORDER_TABS.filter((tab) => can(user.role, tab.permission));
+const receptionFinished = Astro.url.searchParams.get("hecho") === "recibida";
+const [signature, nextReception] = receptionFinished
+  ? await Promise.all([
+      receptionSignature(db, user, order.id),
+      order.bookingId ? nextBookingReception(db, user, order.bookingId) : null,
+    ])
+  : [null, null];
 ---
 
 <TallerLayout title={`${number} · Recepción — Vector Bikes`} description="Recepción de la bicicleta y datos de la orden." path="/taller/recepcion/nueva" user={user}>
   <div class="stack">
     <PageHeader title={number} status={{ status: order.status, label: STATUS_LABELS[order.status as OrderStatus] }} />
+    {receptionFinished && (
+      <Card>
+        <section id="recepcion-lista" role="status" class="stack" aria-labelledby="recepcion-lista-title">
+          <h2 id="recepcion-lista-title">Recepción finalizada</h2>
+          <p>{number} · {bike.brand} {bike.model}</p>
+          {signature && <p>Firmó: {signature.signedByName}</p>}
+          <div class="stack">
+            <a class="btn" href="/taller">Inicio</a>
+            <a class="btn ghost" href={`/taller/ordenes/${order.id}`}>Ver orden</a>
+            {nextReception && <a class="btn ghost" href={`/taller/recepcion/nueva?reserva=${nextReception.bookingId}`}>Recibir la siguiente ({nextReception.position} de {nextReception.total})</a>}
+          </div>
+        </section>
+      </Card>
+    )}
+    {receptionFinished && <p>Puedes corregir los datos de la recepción más abajo.</p>}
     <OrderTabs orderId={order.id} active="recepcion" tabs={tabs} />
     <ReceptionSteps current={2} />
     <div class="fields">
