@@ -17,6 +17,9 @@ interface Props {
 const UPLOAD_ERROR = "No se pudo subir la foto. Intenta de nuevo.";
 const touchStyle = { minHeight: "48px", minWidth: "48px" };
 
+// Sin mensaje, el aviso no dibuja el borde ni el relleno que le da taller.css.
+const emptyStatusStyle = { padding: 0, border: "none", background: "none", margin: 0 };
+
 function uploadPhoto(
   url: string,
   stage: Props["stage"],
@@ -347,18 +350,24 @@ export default function PhotoCapture(props: Props) {
   const photos = usePhotoQueue();
   const upload = usePhotoUpload(props, photos);
   const full = photos.queue.length >= MAX_QUEUED_PHOTOS;
+  const message = `${upload.message}${full ? ` Máximo ${MAX_QUEUED_PHOTOS} fotos por vez` : ""}`;
   return (
     <div style={{ display: "grid", gap: "8px" }}>
       <PhotoControls photos={photos} upload={upload} label={props.label} />
-      <p>
-        {photos.queue.length} de {MAX_QUEUED_PHOTOS}
-      </p>
-      <PhotoList photos={photos} upload={upload} />
-      <UploadButton photos={photos} upload={upload} />
-      <progress max={100} value={upload.progress} aria-label="Progreso de la foto" />
-      <p role="status" aria-live="polite">
-        {upload.message}
-        {full && ` Máximo ${MAX_QUEUED_PHOTOS} fotos por vez`}
+      {photos.queue.length > 0 ? (
+        <>
+          <p>
+            {photos.queue.length} de {MAX_QUEUED_PHOTOS}
+          </p>
+          <PhotoList photos={photos} upload={upload} />
+          <UploadButton photos={photos} upload={upload} />
+          <progress max={100} value={upload.progress} aria-label="Progreso de la foto" />
+        </>
+      ) : null}
+      {/* La región viva queda montada siempre para que el lector de pantalla anuncie lo que
+          aparece en ella; sin mensaje no dibuja su caja. */}
+      <p role="status" aria-live="polite" style={message === "" ? emptyStatusStyle : undefined}>
+        {message}
       </p>
     </div>
   );
