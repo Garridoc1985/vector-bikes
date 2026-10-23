@@ -10,6 +10,7 @@ import { orderPhotos, orderSignatures, workOrders } from "../db/schema-orders.ts
 import { auditLog, bikes, customers } from "../db/schema-taller.ts";
 import type { NotifyDeps } from "../email/notifications.ts";
 import { receivedBikeEmail } from "../email/templates.ts";
+import { sendShopCopy } from "../email/notifications.ts";
 import { createTransport } from "../email/transport.ts";
 import { isStorageKey } from "../storage/storage.ts";
 import type { ObjectStorage } from "../storage/storage.ts";
@@ -299,8 +300,10 @@ async function notifyReceived(
       accessories: (await listAccessories(db, actor, orderId)).map((item) => item.description),
       warrantyOfNumber: await warrantyOrderNumber(db, actor, order.warrantyOfOrderId),
     });
-    const transport = deps.transport ?? createTransport(deps.env ?? getEmailEnv());
+    const env = deps.env ?? getEmailEnv();
+    const transport = deps.transport ?? createTransport(env);
     await transport.send({ to: order.email, ...email });
+    await sendShopCopy(transport, env, order.email, email, formatOrderNumber(order.number));
     await recordAudit(
       db,
       {

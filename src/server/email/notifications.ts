@@ -6,6 +6,7 @@ import type { Booking } from "../db/schema.ts";
 import type { BookingBikeLine } from "./templates.ts";
 import {
   type RenderedEmail,
+  escapeHtml,
   bookingRescheduledEmail,
   customerConfirmationEmail,
   shopCancellationEmail,
@@ -82,6 +83,35 @@ async function deliver(
     await transport.send(outgoing);
   } catch (error) {
     log.error("email.failed", { kind, code, message: errorMessage(error) });
+  }
+}
+
+/**
+ * Copia exacta al taller del correo que acaba de recibir el cliente: el mismo cuerpo, con una línea
+ * que dice a quién se le envió. Va como mensaje aparte y no como CC, así el cliente no ve la
+ * dirección del taller y la copia queda con su propio registro en el proveedor.
+ *
+ * Se llama solo después de que el envío al cliente salió bien. Un fallo acá se registra y no cambia
+ * nada más: la operación ya está escrita y su auditoría depende del correo al cliente, no de esta
+ * copia, que tampoco se reintenta.
+ */
+export async function sendShopCopy(
+  transport: EmailTransport,
+  env: EmailEnv,
+  customerEmail: string,
+  email: RenderedEmail,
+  orderCode: string,
+): Promise<void> {
+  const note = `Copia del correo enviado a ${customerEmail}.`;
+  try {
+    await transport.send({
+      to: env.SHOP_NOTIFY_EMAIL,
+      subject: `Copia · ${email.subject}`,
+      text: `${note}\n\n${email.text}`,
+      html: `<p style="margin:0 0 12px;line-height:1.55">${escapeHtml(note)}</p>${email.html}`,
+    });
+  } catch (error) {
+    log.error("email.shop_copy_failed", { code: orderCode, message: errorMessage(error) });
   }
 }
 
