@@ -124,6 +124,8 @@ const blocks =
         selected.data.service_date,
         booking.mode === "retiro" ? "retiro" : "taller",
         now,
+        booking.bikeCount,
+        booking.id,
       )
     : [];
 const currentDate = DateTime.fromISO(booking.serviceDate, { zone: TIMEZONE })

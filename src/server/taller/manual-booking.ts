@@ -197,14 +197,16 @@ export async function listUpcomingBookings(db: AppDb, today: string, days = 14) 
   }));
 }
 
+/** `excludeBookingId`: la reserva que se reprograma no se cuenta contra sí misma. */
 export async function freeBlocks(
   db: AppDb,
   date: string,
   mode: BookingMode,
   now: Date,
   bikeCount = 1,
+  excludeBookingId?: string,
 ) {
-  const dayData = await readRange(db, date, date);
+  const dayData = await readRange(db, date, date, excludeBookingId);
   return computeDay({ date, mode, now, bikeCount, ...dayData(date) }).blocks.filter(
     (block) => block.state === "free",
   );
