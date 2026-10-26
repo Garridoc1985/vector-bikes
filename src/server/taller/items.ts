@@ -11,19 +11,31 @@ import type { BikeType } from "./rules.ts";
 import { TERMINAL_STATUSES } from "./rules.ts";
 import { canAccessOrder } from "./status.ts";
 
+// Los mensajes llegan al campo del formulario de Líneas: en español y sin jerga de zod.
+const PRICE_MESSAGE = "Escribe un monto entero en pesos, entre 0 y 10.000.000.";
+const QUANTITY_MESSAGE = "Escribe una cantidad entera entre 1 y 100.";
+const itemPriceSchema = z
+  .union([z.number(), z.string().trim().regex(/^\d+$/, PRICE_MESSAGE)])
+  .transform(Number)
+  .pipe(z.number().int(PRICE_MESSAGE).min(0, PRICE_MESSAGE).max(10_000_000, PRICE_MESSAGE));
+const quantitySchema = z.coerce
+  .number(QUANTITY_MESSAGE)
+  .int(QUANTITY_MESSAGE)
+  .min(1, QUANTITY_MESSAGE)
+  .max(100, QUANTITY_MESSAGE);
 export const catalogItemSchema = z.strictObject({
   serviceId: z.uuid({ error: "Selecciona un servicio del catálogo." }),
-  quantity: z.coerce.number().int().min(1).max(100).default(1),
+  quantity: quantitySchema.default(1),
   origin: z.enum(["inicial", "adicional"]).default("inicial"),
 });
 
-const itemPriceSchema = z
-  .union([z.number(), z.string().trim().regex(/^\d+$/)])
-  .transform(Number)
-  .pipe(z.number().int().min(0).max(10_000_000));
 export const partItemSchema = z.strictObject({
-  description: z.string().trim().min(2).max(200),
-  quantity: z.coerce.number().int().min(1).max(100),
+  description: z
+    .string()
+    .trim()
+    .min(2, "Escribe una descripción de 2 a 200 caracteres.")
+    .max(200, "Escribe una descripción de 2 a 200 caracteres."),
+  quantity: quantitySchema,
   unitPriceClp: itemPriceSchema,
 });
 export const priceOverrideSchema = z.strictObject({ unitPriceClp: itemPriceSchema });

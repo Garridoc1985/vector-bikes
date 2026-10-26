@@ -286,9 +286,13 @@ export async function getOrderHeader(db: AppDb, actor: SessionUser, id: string) 
   return header ?? null;
 }
 export const taxDocSchema = z.strictObject({
-  type: z.enum(TAX_DOC_TYPES),
-  number: z.string().trim().min(1).max(30),
-  date: z.iso.date(),
+  type: z.enum(TAX_DOC_TYPES, "Elige boleta o factura."),
+  number: z
+    .string()
+    .trim()
+    .min(1, "Escribe el folio.")
+    .max(30, "El folio tiene hasta 30 caracteres."),
+  date: z.iso.date("Elige una fecha válida."),
 });
 export async function updateTaxDocument(
   db: AppDb,

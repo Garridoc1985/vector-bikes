@@ -276,6 +276,8 @@ it("con un precio inválido responde 422, marca el campo y no guarda nada", asyn
   expect(field).toContain('aria-invalid="true"');
   expect(field).toContain(`aria-describedby="price-${partItemId}-error"`);
   expect(html).toContain(`id="price-${partItemId}-error"`);
+  expect(html).toContain("Escribe un monto entero en pesos");
+  expect(html).not.toContain("Invalid");
   expect(field).toContain('value="-5"');
   expect(tag(html, `price-${serviceItemId}`)).toContain('value="21000"');
   expect(tag(html, "part-description")).toContain('value="Pastillas de freno"');
