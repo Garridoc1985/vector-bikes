@@ -27,6 +27,20 @@ export const partItemSchema = z.strictObject({
   unitPriceClp: itemPriceSchema,
 });
 export const priceOverrideSchema = z.strictObject({ unitPriceClp: itemPriceSchema });
+export const priceOverridesSchema = z
+  .array(z.strictObject({ itemId: z.uuid(), unitPriceClp: itemPriceSchema }))
+  .superRefine((prices, ctx) => {
+    const seen = new Set<string>();
+    for (const [index, price] of prices.entries()) {
+      if (seen.has(price.itemId))
+        ctx.addIssue({
+          code: "custom",
+          path: [index, "itemId"],
+          message: "La línea está repetida.",
+        });
+      seen.add(price.itemId);
+    }
+  });
 
 async function accessibleOrder(db: AppDb, actor: SessionUser, orderId: string) {
   const header = await getOrderHeader(db, actor, orderId);
@@ -245,6 +259,60 @@ export async function overrideItemPrice(
       now,
     );
     return { ok: true } as const;
+  });
+}
+
+async function writeItemPrice(
+  db: AppDb,
+  actor: SessionUser,
+  item: typeof workOrderItems.$inferSelect,
+  unitPriceClp: number,
+  now: Date,
+) {
+  await db
+    .update(workOrderItems)
+    .set({ unitPriceClp, updatedAt: now })
+    .where(and(eq(workOrderItems.branchId, actor.branchId), eq(workOrderItems.id, item.id)));
+  await recordAudit(
+    db,
+    {
+      branchId: actor.branchId,
+      actorUserId: actor.id,
+      action: "item.price_changed",
+      entity: "work_order",
+      entityId: item.workOrderId,
+      details: { itemId: item.id, before: item.unitPriceClp, after: unitPriceClp },
+    },
+    now,
+  );
+}
+
+export async function overrideItemPrices(
+  db: AppDb,
+  actor: SessionUser,
+  orderId: string,
+  input: unknown,
+  now: Date,
+) {
+  if (!can(actor.role, "items.override_price")) return { ok: false, code: "forbidden" } as const;
+  const parsed = priceOverridesSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, code: "validation_error" } as const;
+  return db.transaction(async (tx) => {
+    const access = await lockOrder(tx, actor, orderId);
+    if (!access.ok) return access;
+    const changes: { item: typeof workOrderItems.$inferSelect; unitPriceClp: number }[] = [];
+    // Validar y bloquear todo antes de escribir: devolver un error no revierte una transacción.
+    for (const price of parsed.data) {
+      const locked = await lockActiveItem(tx, actor, price.itemId);
+      if (!locked.ok || locked.item.workOrderId !== orderId)
+        return { ok: false, code: "not_found" } as const;
+      if (locked.item.unitPriceClp !== price.unitPriceClp)
+        changes.push({ item: locked.item, unitPriceClp: price.unitPriceClp });
+    }
+    for (const change of changes)
+      await writeItemPrice(tx, actor, change.item, change.unitPriceClp, now);
+    if (changes.length > 0) await recomputeOrderTotals(tx, orderId, now);
+    return { ok: true, updated: changes.length } as const;
   });
 }
 

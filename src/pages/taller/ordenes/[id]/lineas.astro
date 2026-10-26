@@ -17,9 +17,9 @@ import {
   addPartItem,
   catalogItemSchema,
   listItems,
-  overrideItemPrice,
+  overrideItemPrices,
   partItemSchema,
-  priceOverrideSchema,
+  priceOverridesSchema,
   voidItem,
 } from "../../../../server/taller/items.ts";
 import {
@@ -37,6 +37,7 @@ import type { BikeType, OrderStatus } from "../../../../server/taller/rules.ts";
 import { orderDetail } from "../../../../server/taller/status.ts";
 
 export const prerender = false;
+if (Astro.request.method === "POST" && !isAllowedOrigin(Astro.request)) return forbiddenResponse();
 const db = getDb();
 const now = new Date();
 const user = await requireAdmin(db, Astro.cookies.get(SESSION_COOKIE)?.value, now);
@@ -48,41 +49,55 @@ if (!user)
       "cache-control": "no-store",
     },
   });
-if (Astro.request.method === "POST" && !isAllowedOrigin(Astro.request)) return forbiddenResponse();
 if (!can(user.role, "orders.edit")) return forbiddenResponse();
 Astro.response.headers.set("cache-control", "no-store");
 
 const permissions: Record<string, Action> = {
   catalog: "items.add_catalog",
   part: "items.add_part",
-  price: "items.override_price",
+  prices: "items.override_price",
   void: "items.void",
   tax: "tax_doc.edit",
 };
 const actionSchema = z.discriminatedUnion("action", [
   catalogItemSchema.omit({ origin: true }).extend({ action: z.literal("catalog") }),
   partItemSchema.extend({ action: z.literal("part") }),
-  priceOverrideSchema.extend({ action: z.literal("price"), itemId: z.uuid() }),
+  z.strictObject({ action: z.literal("prices") }),
   z.strictObject({ action: z.literal("void"), itemId: z.uuid() }),
   taxDocSchema.extend({ action: z.literal("tax") }),
 ]);
+function parseAction(submitted: Record<string, string>) {
+  const action = submitted.anular !== undefined ? "void" : submitted.action;
+  const fields =
+    action === "catalog"
+      ? { serviceId: submitted.serviceId, quantity: submitted.catalog_quantity }
+      : action === "part"
+        ? {
+            description: submitted.description,
+            quantity: submitted.part_quantity,
+            unitPriceClp: submitted.part_price,
+          }
+        : action === "tax"
+          ? { type: submitted.type, number: submitted.number, date: submitted.date }
+          : action === "void"
+            ? { itemId: submitted.anular }
+            : {};
+  return actionSchema.safeParse({ action, ...fields });
+}
 let submitted: Record<string, string> = {};
-let parsedInput: ReturnType<typeof actionSchema.safeParse> | undefined;
-const fieldErrors = new Set<string>();
+const fieldErrors: Record<string, string> = {};
 let error = "";
 if (Astro.request.method === "POST") {
   const form = await Astro.request.formData();
   submitted = Object.fromEntries([...form].map(([key, value]) => [key, String(value)]));
-  const permission = Object.hasOwn(permissions, submitted.action ?? "")
-    ? permissions[submitted.action ?? ""]
-    : undefined;
+  const action = submitted.anular !== undefined ? "void" : (submitted.action ?? "");
+  const permission = Object.hasOwn(permissions, action) ? permissions[action] : undefined;
   if (permission && !can(user.role, permission)) return forbiddenResponse();
-  parsedInput = actionSchema.safeParse(submitted);
-  if (!parsedInput.success) {
-    Astro.response.status = 422;
-    error = "Revisa los campos indicados del formulario.";
-    for (const issue of parsedInput.error.issues) fieldErrors.add(String(issue.path[0]));
-  }
+  if (
+    Object.keys(submitted).some((key) => key.startsWith("price_")) &&
+    !can(user.role, "items.override_price")
+  )
+    return forbiddenResponse();
 }
 const id = z.uuid().safeParse(Astro.params.id);
 if (!id.success)
@@ -101,36 +116,73 @@ if (!detail.ok) {
 const { order, bike } = detail;
 const PATH = Astro.url.pathname;
 const items = await listItems(db, user, order.id);
-if (parsedInput?.success) {
-  const input = parsedInput.data;
-  const { action, ...fields } = input;
-  let result: { ok: boolean; code?: string } = { ok: false, code: "validation_error" };
-  if (input.action === "catalog") result = await addCatalogItem(db, user, order.id, fields, now);
-  else if (input.action === "part") result = await addPartItem(db, user, order.id, fields, now);
-  else if (input.action === "tax")
-    result = await updateTaxDocument(db, user, order.id, fields, now);
-  else if ("itemId" in input && items.some((item) => item.id === input.itemId)) {
-    result =
-      input.action === "price"
-        ? await overrideItemPrice(db, user, input.itemId, { unitPriceClp: input.unitPriceClp }, now)
-        : await voidItem(db, user, input.itemId, now);
-  } else result = { ok: false, code: "not_found" };
-  if (result.ok)
-    return new Response(null, {
-      status: 303,
-      headers: { location: `${PATH}?hecho=${action}`, "cache-control": "no-store" },
-    });
-  if (result.code === "forbidden") return forbiddenResponse();
-  Astro.response.status =
-    result.code === "not_found" ? 404 : result.code === "validation_error" ? 422 : 409;
-  error =
-    result.code === "invalid_status"
-      ? "No se pueden editar líneas de una orden entregada, cancelada o con trabajo rechazado."
-      : result.code === "no_price"
-        ? "El servicio no tiene precio para esta bicicleta."
-        : result.code === "not_found"
-          ? "No se encontró la orden o la línea."
-          : "Revisa los datos del formulario.";
+if (Astro.request.method === "POST") {
+  const prices = items.flatMap((item) => {
+    const unitPriceClp = submitted[`price_${item.id}`];
+    return unitPriceClp === undefined ? [] : [{ itemId: item.id, unitPriceClp }];
+  });
+  const parsedPrices = priceOverridesSchema.safeParse(prices);
+  const parsed = parseAction(submitted);
+  if (!parsedPrices.success) {
+    for (const issue of parsedPrices.error.issues) {
+      const price = prices[Number(issue.path[0])];
+      if (price) fieldErrors[`price_${price.itemId}`] ??= issue.message;
+    }
+  }
+  if (!parsed.success) {
+    const action = submitted.anular !== undefined ? "void" : submitted.action;
+    const fields: Record<string, string> =
+      action === "catalog"
+        ? { quantity: "catalog_quantity" }
+        : action === "part"
+          ? { quantity: "part_quantity", unitPriceClp: "part_price" }
+          : { itemId: "anular" };
+    for (const issue of parsed.error.issues) {
+      const key = String(issue.path[0]);
+      fieldErrors[fields[key] ?? key] ??= issue.message;
+    }
+  }
+  if (!parsed.success || !parsedPrices.success) {
+    Astro.response.status = 422;
+    error = "Revisa los campos indicados del formulario.";
+  } else {
+    const input = parsed.data;
+    const { action, ...fields } = input;
+    let updated = 0;
+    let result: { ok: boolean; code?: string } = { ok: true };
+    if (input.action === "void" && !items.some((item) => item.id === input.itemId))
+      result = { ok: false, code: "not_found" };
+    if (result.ok && prices.length > 0) {
+      const saved = await overrideItemPrices(db, user, order.id, parsedPrices.data, now);
+      result = saved;
+      if (saved.ok) updated = saved.updated;
+    }
+    if (result.ok) {
+      if (action === "catalog") result = await addCatalogItem(db, user, order.id, fields, now);
+      else if (action === "part") result = await addPartItem(db, user, order.id, fields, now);
+      else if (action === "tax") result = await updateTaxDocument(db, user, order.id, fields, now);
+      else if (input.action === "void") result = await voidItem(db, user, input.itemId, now);
+    }
+    if (result.ok)
+      return new Response(null, {
+        status: 303,
+        headers: {
+          location: `${PATH}?hecho=${action === "prices" ? "precios" : action}${prices.length > 0 ? `&actualizados=${updated}` : ""}`,
+          "cache-control": "no-store",
+        },
+      });
+    if (result.code === "forbidden") return forbiddenResponse();
+    Astro.response.status =
+      result.code === "not_found" ? 404 : result.code === "validation_error" ? 422 : 409;
+    error =
+      result.code === "invalid_status"
+        ? "No se pueden editar líneas de una orden entregada, cancelada o con trabajo rechazado."
+        : result.code === "no_price"
+          ? "El servicio no tiene precio para esta bicicleta."
+          : result.code === "not_found"
+            ? "No se encontró la orden o la línea."
+            : "Revisa los datos del formulario.";
+  }
 }
 const catalog = can(user.role, "items.add_catalog")
   ? (await listCatalog(db, user)).filter((service) => service.isActive)
@@ -140,19 +192,25 @@ const editable = !(TERMINAL_STATUSES as readonly string[]).includes(order.status
 const notices: Record<string, string> = {
   catalog: "Servicio agregado.",
   part: "Repuesto agregado.",
-  price: "Precio actualizado.",
   void: "Línea anulada.",
   tax: "Documento tributario guardado.",
 };
+const count = z
+  .string()
+  .regex(/^\d+$/)
+  .transform(Number)
+  .pipe(z.number().int().min(0))
+  .safeParse(Astro.url.searchParams.get("actualizados"));
 const done = Astro.url.searchParams.get("hecho") ?? "";
-const notice = Object.hasOwn(notices, done) ? notices[done] : undefined;
-function invalid(action: string, field: string, itemId?: string) {
-  return (
-    submitted.action === action &&
-    (!itemId || submitted.itemId === itemId) &&
-    fieldErrors.has(field)
-  );
-}
+const priceNotice = count.success && count.data > 0 ? `Precios actualizados: ${count.data}.` : "";
+const notice =
+  done === "precios"
+    ? count.success
+      ? priceNotice || "No había cambios de precio."
+      : undefined
+    : Object.hasOwn(notices, done)
+      ? `${notices[done]}${priceNotice ? ` ${priceNotice}` : ""}`
+      : undefined;
 const tabs = ORDER_TABS.filter((tab) => can(user.role, tab.permission));
 ---
 
@@ -163,61 +221,80 @@ const tabs = ORDER_TABS.filter((tab) => can(user.role, tab.permission));
     {notice && <p role="status">{notice}</p>}
     {error && <p id="form-error" role="alert">{error}</p>}
     {!editable && <p class="muted">Las líneas de esta orden ya no se pueden editar.</p>}
+    <form class="stack" method="post" action={PATH}>
     <Card>
       <div class="scroll-x"><table class="dense">
         <caption>Líneas vigentes</caption>
         <thead><tr><th scope="col">Descripción</th><th scope="col">Cantidad</th><th scope="col">Precio unitario</th><th scope="col">Subtotal</th><th scope="col">Origen</th><th scope="col">Acciones</th></tr></thead>
         <tbody>{items.map((item) => <tr>
-          <td>{item.description}</td><td>{item.quantity}</td><td class="mono">{formatClp(item.unitPriceClp)}</td><td class="mono">{formatClp(item.quantity * item.unitPriceClp)}</td><td>{item.origin === "inicial" ? "Inicial" : "Adicional"}</td>
+          <td>{item.description}</td><td>{item.quantity}</td>
+          <td class="mono">{editable && can(user.role, "items.override_price") ? <div class="field">
+            <label for={`price-${item.id}`}>Nuevo precio de {item.description}</label>
+            <input id={`price-${item.id}`} name={`price_${item.id}`} type="text" inputmode="numeric" value={submitted[`price_${item.id}`] ?? item.unitPriceClp} aria-invalid={Boolean(fieldErrors[`price_${item.id}`])} aria-describedby={fieldErrors[`price_${item.id}`] ? `price-${item.id}-error` : undefined} />
+            {fieldErrors[`price_${item.id}`] && <p id={`price-${item.id}-error`}>{fieldErrors[`price_${item.id}`]}</p>}
+          </div> : formatClp(item.unitPriceClp)}</td>
+          <td class="mono">{formatClp(item.quantity * item.unitPriceClp)}</td><td>{item.origin === "inicial" ? "Inicial" : "Adicional"}</td>
           <td><div class="fields">
-            {editable && can(user.role, "items.override_price") && <form method="post" action={PATH}>
-              <input type="hidden" name="action" value="price" /><input type="hidden" name="itemId" value={item.id} />
-              <div class="field"><label for={`price-${item.id}`}>Nuevo precio de {item.description}</label>
-                <input id={`price-${item.id}`} name="unitPriceClp" type="number" required min="0" max="10000000" step="1" value={submitted.action === "price" && submitted.itemId === item.id ? submitted.unitPriceClp : item.unitPriceClp} aria-invalid={invalid("price", "unitPriceClp", item.id)} aria-describedby={invalid("price", "unitPriceClp", item.id) ? "form-error" : undefined} />
-              </div><button class="btn" type="submit">Cambiar precio</button>
-            </form>}
-            {editable && can(user.role, "items.void") && <form method="post" action={PATH}>
-              <input type="hidden" name="action" value="void" /><input type="hidden" name="itemId" value={item.id} />
-              <button class="btn ghost" type="submit" aria-label={`Anular ${item.description}`}>Anular</button>
-            </form>}
+            {editable && can(user.role, "items.void") && <button class="btn ghost" type="submit" name="anular" value={item.id} aria-label={`Anular ${item.description}`}>Anular</button>}
             {(!editable || (!can(user.role, "items.override_price") && !can(user.role, "items.void"))) && <span class="muted">Sin acciones</span>}
           </div></td>
         </tr>)}</tbody>
       </table></div>
       {items.length === 0 && <p class="muted">No hay líneas registradas.</p>}
+      {editable && can(user.role, "items.override_price") && <button class="btn" type="submit" name="action" value="prices">Guardar cambios</button>}
       <p>Total para el cliente: <span class="mono">{formatClp(order.totalClp)}</span></p>
     </Card>
-    {editable && can(user.role, "items.add_catalog") && <Card><form method="post" action={PATH}>
-      <input type="hidden" name="action" value="catalog" />
+    {editable && can(user.role, "items.add_catalog") && <Card>
       <fieldset><legend>Agregar servicio</legend><div class="fields">
         <div class="field"><label for="serviceId">Servicio del catálogo</label>
-          <select id="serviceId" name="serviceId" required aria-invalid={invalid("catalog", "serviceId")} aria-describedby={invalid("catalog", "serviceId") ? "form-error" : undefined}>
+          <select id="serviceId" name="serviceId" aria-invalid={Boolean(fieldErrors.serviceId)} aria-describedby={fieldErrors.serviceId ? "serviceId-error" : undefined}>
             <option value="">Selecciona un servicio</option>
-            {catalog.map((service) => <option value={service.id} selected={submitted.action === "catalog" && submitted.serviceId === service.id} disabled={service.prices[bike.bikeType as BikeType] === undefined}>
+            {catalog.map((service) => <option value={service.id} selected={submitted.serviceId === service.id} disabled={service.prices[bike.bikeType as BikeType] === undefined}>
               {service.name} · {service.prices[bike.bikeType as BikeType] === undefined ? "Sin precio para esta bicicleta" : formatClp(service.prices[bike.bikeType as BikeType]!)}
             </option>)}
           </select>
+          {fieldErrors.serviceId && <p id="serviceId-error">{fieldErrors.serviceId}</p>}
         </div>
-        <div class="field"><label for="service-quantity">Cantidad</label><input id="service-quantity" name="quantity" type="number" required min="1" max="100" step="1" value={submitted.action === "catalog" ? submitted.quantity : 1} aria-invalid={invalid("catalog", "quantity")} aria-describedby={invalid("catalog", "quantity") ? "form-error" : undefined} /></div>
-      </div><button class="btn" type="submit">Agregar servicio</button></fieldset>
-    </form></Card>}
-    {editable && can(user.role, "items.add_part") && <Card><form method="post" action={PATH}>
-      <input type="hidden" name="action" value="part" />
+        <div class="field"><label for="service-quantity">Cantidad</label>
+          <input id="service-quantity" name="catalog_quantity" type="text" inputmode="numeric" value={submitted.catalog_quantity ?? 1} aria-invalid={Boolean(fieldErrors.catalog_quantity)} aria-describedby={fieldErrors.catalog_quantity ? "service-quantity-error" : undefined} />
+          {fieldErrors.catalog_quantity && <p id="service-quantity-error">{fieldErrors.catalog_quantity}</p>}
+        </div>
+      </div><button class="btn" type="submit" name="action" value="catalog">Agregar servicio</button></fieldset>
+    </Card>}
+    {editable && can(user.role, "items.add_part") && <Card>
       <fieldset><legend>Agregar repuesto</legend><div class="fields">
-        <div class="field"><label for="part-description">Descripción</label><input id="part-description" name="description" type="text" required minlength="2" maxlength="200" value={submitted.action === "part" ? submitted.description : ""} aria-invalid={invalid("part", "description")} aria-describedby={invalid("part", "description") ? "form-error" : undefined} /></div>
-        <div class="field"><label for="part-quantity">Cantidad</label><input id="part-quantity" name="quantity" type="number" required min="1" max="100" step="1" value={submitted.action === "part" ? submitted.quantity : 1} aria-invalid={invalid("part", "quantity")} aria-describedby={invalid("part", "quantity") ? "form-error" : undefined} /></div>
-        <div class="field"><label for="part-price">Precio unitario (CLP)</label><input id="part-price" name="unitPriceClp" type="number" required min="0" max="10000000" step="1" value={submitted.action === "part" ? submitted.unitPriceClp : ""} aria-invalid={invalid("part", "unitPriceClp")} aria-describedby={invalid("part", "unitPriceClp") ? "form-error" : undefined} /></div>
-      </div><button class="btn" type="submit">Agregar repuesto</button></fieldset>
-    </form></Card>}
-    {can(user.role, "tax_doc.edit") && <Card><form method="post" action={PATH}>
-      <input type="hidden" name="action" value="tax" />
+        <div class="field"><label for="part-description">Descripción</label>
+          <input id="part-description" name="description" type="text" maxlength="200" value={submitted.description ?? ""} aria-invalid={Boolean(fieldErrors.description)} aria-describedby={fieldErrors.description ? "part-description-error" : undefined} />
+          {fieldErrors.description && <p id="part-description-error">{fieldErrors.description}</p>}
+        </div>
+        <div class="field"><label for="part-quantity">Cantidad</label>
+          <input id="part-quantity" name="part_quantity" type="text" inputmode="numeric" value={submitted.part_quantity ?? 1} aria-invalid={Boolean(fieldErrors.part_quantity)} aria-describedby={fieldErrors.part_quantity ? "part-quantity-error" : undefined} />
+          {fieldErrors.part_quantity && <p id="part-quantity-error">{fieldErrors.part_quantity}</p>}
+        </div>
+        <div class="field"><label for="part-price">Precio unitario (CLP)</label>
+          <input id="part-price" name="part_price" type="text" inputmode="numeric" value={submitted.part_price ?? ""} aria-invalid={Boolean(fieldErrors.part_price)} aria-describedby={fieldErrors.part_price ? "part-price-error" : undefined} />
+          {fieldErrors.part_price && <p id="part-price-error">{fieldErrors.part_price}</p>}
+        </div>
+      </div><button class="btn" type="submit" name="action" value="part">Agregar repuesto</button></fieldset>
+    </Card>}
+    {can(user.role, "tax_doc.edit") && <Card>
       <fieldset><legend>Documento tributario</legend><div class="fields">
-        <div class="field"><label for="tax-type">Tipo</label><select id="tax-type" name="type" required aria-invalid={invalid("tax", "type")} aria-describedby={invalid("tax", "type") ? "form-error" : undefined}>
-          {TAX_DOC_TYPES.map((type) => <option value={type} selected={type === (submitted.action === "tax" ? submitted.type : order.taxDocType ?? "boleta")}>{TAX_DOC_TYPE_LABELS[type]}</option>)}
-        </select></div>
-        <div class="field"><label for="tax-number">Folio</label><input id="tax-number" name="number" type="text" required minlength="1" maxlength="30" value={submitted.action === "tax" ? submitted.number : order.taxDocNumber ?? ""} aria-invalid={invalid("tax", "number")} aria-describedby={invalid("tax", "number") ? "form-error" : undefined} /></div>
-        <div class="field"><label for="tax-date">Fecha</label><input id="tax-date" name="date" type="date" required value={submitted.action === "tax" ? submitted.date : order.taxDocDate ?? ""} aria-invalid={invalid("tax", "date")} aria-describedby={invalid("tax", "date") ? "form-error" : undefined} /></div>
-      </div><button class="btn" type="submit">Guardar documento tributario</button></fieldset>
-    </form></Card>}
+        <div class="field"><label for="tax-type">Tipo</label>
+          <select id="tax-type" name="type" aria-invalid={Boolean(fieldErrors.type)} aria-describedby={fieldErrors.type ? "tax-type-error" : undefined}>
+            {TAX_DOC_TYPES.map((type) => <option value={type} selected={type === (submitted.type ?? order.taxDocType ?? "boleta")}>{TAX_DOC_TYPE_LABELS[type]}</option>)}
+          </select>
+          {fieldErrors.type && <p id="tax-type-error">{fieldErrors.type}</p>}
+        </div>
+        <div class="field"><label for="tax-number">Folio</label>
+          <input id="tax-number" name="number" type="text" maxlength="30" value={submitted.number ?? order.taxDocNumber ?? ""} aria-invalid={Boolean(fieldErrors.number)} aria-describedby={fieldErrors.number ? "tax-number-error" : undefined} />
+          {fieldErrors.number && <p id="tax-number-error">{fieldErrors.number}</p>}
+        </div>
+        <div class="field"><label for="tax-date">Fecha</label>
+          <input id="tax-date" name="date" type="date" value={submitted.date ?? order.taxDocDate ?? ""} aria-invalid={Boolean(fieldErrors.date)} aria-describedby={fieldErrors.date ? "tax-date-error" : undefined} />
+          {fieldErrors.date && <p id="tax-date-error">{fieldErrors.date}</p>}
+        </div>
+      </div><button class="btn" type="submit" name="action" value="tax">Guardar documento tributario</button></fieldset>
+    </Card>}
+    </form>
   </div>
 </TallerLayout>
