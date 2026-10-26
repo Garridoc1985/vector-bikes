@@ -9,6 +9,8 @@ import {
   bookingDays,
   bookingRequests,
   bookings,
+  branches,
+  users,
 } from "../../src/server/db/schema.ts";
 import * as transport from "../../src/server/email/transport.ts";
 import {
@@ -22,13 +24,8 @@ import { createTestDb } from "../helpers/pglite.ts";
 import type { TestDb } from "../helpers/pglite.ts";
 
 const NOW = new Date("2026-09-15T15:00:00.000Z");
-const ACTOR: SessionUser = {
-  id: "00000000-0000-4000-8000-000000000001",
-  branchId: "00000000-0000-4000-8000-000000000002",
-  name: "Recepción",
-  email: "recepcion@ejemplo.cl",
-  role: "reception",
-};
+// Sucursal y usuario reales: la auditoría de la reserva (decisión 48) referencia ambas tablas.
+let ACTOR: SessionUser;
 const noMail = { notify: async () => {} };
 function input(overrides: Partial<ManualBookingInput> = {}): ManualBookingInput {
   return {
@@ -50,6 +47,26 @@ describe("reservas manuales", () => {
   let test: TestDb;
   beforeEach(async () => {
     test = await createTestDb();
+    const [branch] = await test.db.insert(branches).values({ name: "Vitacura" }).returning();
+    if (!branch) throw new Error("Falta la sucursal de prueba.");
+    const [user] = await test.db
+      .insert(users)
+      .values({
+        branchId: branch.id,
+        role: "reception",
+        name: "Recepción",
+        email: "recepcion@ejemplo.cl",
+        passwordHash: "hash-de-prueba",
+      })
+      .returning();
+    if (!user) throw new Error("Falta el usuario de prueba.");
+    ACTOR = {
+      id: user.id,
+      branchId: branch.id,
+      name: user.name,
+      email: user.email,
+      role: "reception",
+    };
     transport.consoleOutbox.length = 0;
     vi.spyOn(log, "info").mockImplementation(() => {});
   });

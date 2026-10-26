@@ -11,8 +11,9 @@ import { MAX_BIKES_PER_BOOKING } from "../booking/rules.ts";
 import { addDays, computeDay } from "../booking/slots.ts";
 import type { AppDb } from "../db/client.ts";
 import { workOrders } from "../db/schema-orders.ts";
-import { bookings } from "../db/schema.ts";
+import { type Booking, bookings } from "../db/schema.ts";
 import { notifyBookingCreated } from "../email/notifications.ts";
+import { recordAudit } from "./audit.ts";
 
 export const manualBookingSchema = z
   .strictObject({
@@ -111,6 +112,35 @@ function declaredBikes(data: z.output<typeof manualBookingSchema>) {
   return bikes;
 }
 
+/** Sin nombre, teléfono ni correo: solo lo que identifica la reserva en la agenda. */
+async function auditBookingCreated(
+  db: AppDb,
+  actor: SessionUser,
+  booking: Booking,
+  start: string,
+  now: Date,
+) {
+  await recordAudit(
+    db,
+    {
+      branchId: actor.branchId,
+      actorUserId: actor.id,
+      action: "booking.created",
+      entity: "booking",
+      entityId: booking.id,
+      details: {
+        code: booking.code,
+        serviceDate: booking.serviceDate,
+        start,
+        mode: booking.mode,
+        bikeCount: booking.bikeCount,
+        source: booking.source,
+      },
+    },
+    now,
+  );
+}
+
 export async function createManualBooking(
   db: AppDb,
   actor: SessionUser,
@@ -124,26 +154,32 @@ export async function createManualBooking(
   const data = parsed.data;
   const phone = normalizePhone(data.telefono);
   if (phone === null) return { ok: false, code: "validation_error" } as const;
-  const result = await createBooking(
-    db,
-    {
-      mode: data.mode,
-      serviceDate: data.service_date,
-      start: data.start,
-      customerName: data.nombre,
-      phoneE164: phone,
-      email: data.correo?.toLowerCase() ?? null,
-      bike: data.bicicleta,
-      description: data.descripcion,
-      ...(data.bicis > 1 ? { bikes: declaredBikes(data) } : {}),
-      comuna: data.comuna ?? null,
-      address: data.direccion ?? null,
-      ipHash: null,
-      whatsappConsent: false,
-      source: data.source,
-    },
-    now,
-  );
+  // `createBooking` conserva su firma y su propia transacción; dentro de esta, Drizzle la anida
+  // como savepoint, así que la auditoría se escribe en la misma transacción que la reserva.
+  const result = await db.transaction(async (tx) => {
+    const created = await createBooking(
+      tx,
+      {
+        mode: data.mode,
+        serviceDate: data.service_date,
+        start: data.start,
+        customerName: data.nombre,
+        phoneE164: phone,
+        email: data.correo?.toLowerCase() ?? null,
+        bike: data.bicicleta,
+        description: data.descripcion,
+        ...(data.bicis > 1 ? { bikes: declaredBikes(data) } : {}),
+        comuna: data.comuna ?? null,
+        address: data.direccion ?? null,
+        ipHash: null,
+        whatsappConsent: false,
+        source: data.source,
+      },
+      now,
+    );
+    if (created.ok) await auditBookingCreated(tx, actor, created.booking, data.start, now);
+    return created;
+  });
   if (result.ok) {
     try {
       const extra = declaredBikes(data)

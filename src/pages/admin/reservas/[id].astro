@@ -99,7 +99,7 @@ if (Astro.request.method === "POST") {
     } else {
       const action = adminActionSchema.safeParse(form.get("accion"));
       const result = action.success
-        ? await applyAdminAction(getDb(), id, action.data, new Date())
+        ? await applyAdminAction(getDb(), id, action.data, new Date(), admin)
         : ({ ok: false, code: "invalid_transition" } as const);
       if (result.ok && action.success) {
         return Astro.redirect(`/admin/reservas/${id}?hecho=${action.data}`, 303);
