@@ -102,9 +102,12 @@ if (!reschedulable) {
     };
     Astro.response.status =
       result.code === "unchanged" || result.code === "slot_unavailable" ? 422 : 409;
-    error = messages[result.code];
+    // El detalle del bloque va solo en su campo; arriba queda el aviso general.
+    if (result.code === "slot_unavailable") {
+      fieldErrors.start = messages.slot_unavailable;
+      error = "Revisa los datos de la reserva.";
+    } else error = messages[result.code];
     if (result.code === "not_reschedulable") reschedulable = false;
-    if (result.code === "slot_unavailable") fieldErrors.start = error;
   }
 }
 const selected = selectionSchema.safeParse(values);

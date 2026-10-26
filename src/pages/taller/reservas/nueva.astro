@@ -68,14 +68,13 @@ if (isPost) {
       });
     if (result.code === "forbidden") return forbiddenResponse();
     Astro.response.status = result.code === "validation_error" ? 422 : 409;
-    error =
-      result.code === "phone_limit"
-        ? "Ya existe una reserva próxima con este teléfono. Revisa la agenda antes de crear otra."
-        : result.code === "slot_unavailable"
-          ? "El bloque ya no está disponible. Elige otro bloque o día."
-          : "Revisa los datos de la reserva.";
-    if (result.code === "phone_limit") fieldErrors.telefono = error;
-    if (result.code === "slot_unavailable") fieldErrors.start = error;
+    // El detalle va solo en su campo; arriba queda el aviso general, igual que en Reprogramar.
+    error = "Revisa los datos de la reserva.";
+    if (result.code === "phone_limit")
+      fieldErrors.telefono =
+        "Ya existe una reserva próxima con este teléfono. Revisa la agenda antes de crear otra.";
+    if (result.code === "slot_unavailable")
+      fieldErrors.start = "El bloque ya no está disponible. Elige otro bloque o día.";
   }
 }
 const selected = selectionSchema.safeParse({
