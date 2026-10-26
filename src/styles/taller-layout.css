@@ -1,0 +1,188 @@
+/* Estilos del área /taller, parte 1: base, identidad, menú y columna de escritorio. Mismos tokens de global.css; todo cuelga de .taller. Los componentes están en taller-components.css. */
+.taller {
+  min-height: 100vh;
+  background: var(--ground);
+  color: var(--ink);
+}
+.taller a,
+.taller button,
+.taller select,
+.taller textarea,
+.taller input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"]) {
+  min-height: 48px;
+  min-width: 48px;
+}
+.taller a {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 12px;
+  text-underline-offset: 4px;
+}
+.taller button,
+.taller select,
+.taller textarea,
+.taller input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"]) {
+  padding: 10px 12px;
+  border: 1px solid var(--field-border);
+  border-radius: 2px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+.taller .taller-aside {
+  background: var(--surface);
+  border-bottom: 1px solid var(--rule);
+}
+.taller .taller-id {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 12px clamp(16px, 4vw, 40px);
+}
+.taller .taller-brand {
+  font-family: var(--display);
+  font-size: 0.95rem;
+}
+.taller .taller-user {
+  color: var(--ink-2);
+  font-size: 0.9rem;
+}
+.taller .role {
+  font-weight: 600;
+}
+.taller .taller-toggle {
+  margin-inline-start: auto;
+  font-weight: 600;
+}
+/* Panel nativo: cerrado lo esconde el navegador; abierto es un cajón a la izquierda. */
+.taller .taller-panel {
+  inset: 0 auto 0 0;
+  width: min(300px, 86vw);
+  max-width: none;
+  max-height: none;
+  height: 100%;
+  overflow-y: auto;
+  padding: 16px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.taller .taller-panel:popover-open {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.taller .taller-close {
+  align-self: flex-start;
+}
+.taller .taller-group + .taller-group {
+  margin-top: 20px;
+}
+.taller .taller-group ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.taller .taller-group li + li {
+  margin-top: 4px;
+}
+.taller .taller-panel nav a {
+  display: flex;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  color: var(--ink-2);
+  text-decoration: none;
+  transition:
+    color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
+}
+.taller .taller-panel nav a:hover {
+  border-color: var(--field-border);
+  color: var(--ink);
+}
+.taller .taller-panel nav a[aria-current="page"] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--on-ink);
+  font-weight: 600;
+}
+.taller .taller-exit {
+  margin: 0;
+  margin-block-start: auto;
+  padding-block-start: 16px;
+}
+.taller .taller-exit button {
+  width: 100%;
+}
+.taller .taller-content {
+  width: 100%;
+  max-width: 1180px;
+  margin-inline: auto;
+  padding: 32px clamp(16px, 4vw, 40px);
+}
+@media (min-width: 1024px) {
+  .taller {
+    --aside-w: 240px;
+    --aside-pad-y: 24px;
+    --aside-pad-x: 16px;
+    --aside-gap: 24px;
+    /* Alto fijo del bloque de identidad: de él cuelga el borde superior del panel. */
+    --aside-head: 56px;
+    display: grid;
+    grid-template-columns: var(--aside-w) minmax(0, 1fr);
+  }
+  .taller .taller-aside {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    padding: var(--aside-pad-y) var(--aside-pad-x);
+    border-bottom: 0;
+    border-inline-end: 1px solid var(--rule);
+  }
+  .taller .taller-id {
+    display: block;
+    height: var(--aside-head);
+    padding: 0;
+  }
+  .taller .taller-brand,
+  .taller .taller-user {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .taller .taller-user {
+    margin-block-start: 8px;
+  }
+  .taller .taller-toggle,
+  .taller .taller-close {
+    display: none;
+  }
+  /*
+   * El panel se fija bajo la identidad, abierto o cerrado: así el estado
+   * :popover-open (capa superior) se ve igual que la columna y no la tapa
+   * al pasar de tablet a escritorio con el menú abierto.
+   */
+  .taller .taller-panel,
+  .taller .taller-panel:popover-open {
+    position: fixed;
+    top: calc(var(--aside-pad-y) + var(--aside-head) + var(--aside-gap));
+    bottom: var(--aside-pad-y);
+    left: var(--aside-pad-x);
+    display: flex;
+    flex-direction: column;
+    gap: var(--aside-gap);
+    width: calc(var(--aside-w) - 2 * var(--aside-pad-x));
+    height: auto;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+  }
+}

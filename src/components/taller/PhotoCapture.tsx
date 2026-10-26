@@ -17,7 +17,7 @@ interface Props {
 const UPLOAD_ERROR = "No se pudo subir la foto. Intenta de nuevo.";
 const touchStyle = { minHeight: "48px", minWidth: "48px" };
 
-// Sin mensaje, el aviso no dibuja el borde ni el relleno que le da taller.css.
+// Sin mensaje, el aviso no dibuja el borde ni el relleno que le da taller-components.css.
 const emptyStatusStyle = { padding: 0, border: "none", background: "none", margin: 0 };
 
 function uploadPhoto(
