@@ -93,7 +93,7 @@ Al finalizar la recepción, el cliente recibe un correo con el resumen si tiene 
 
 Desde el detalle de la orden, abre **Etiqueta** y pulsa **Imprimir**. Selecciona la impresora de etiquetas con papel de **62 mm**, sin márgenes. La etiqueta lleva el número de orden, nombre del cliente, entrega estimada y QR; el QR abre la orden interna y requiere sesión. Haz una impresión de prueba para revisar el tamaño y la lectura antes de usarla en una bici.
 
-En la orden se asigna el mecánico; un mecánico puede **Tomar orden** si está sin asignar y Recibida o en Diagnóstico. Registra el diagnóstico, cambia a los estados disponibles y usa **Galería** para las fotos de reparación y terminado. **Líneas** registra servicios y repuestos; **Componentes** conserva lo instalado y lo reemplazado en el historial de la bicicleta.
+En la orden se asigna el mecánico; un mecánico puede **Tomar orden** si está sin asignar y Recibida o en Diagnóstico. Registra el diagnóstico, cambia a los estados disponibles y usa **Galería** para las fotos de reparación y terminado. **Líneas** registra servicios y repuestos: los precios se editan en la misma tabla y se guardan todos con **Guardar cambios**; cualquier otro botón de la página guarda antes los precios editados, y un precio inválido detiene todo y se marca en su campo. **Componentes** conserva lo instalado y lo reemplazado en el historial de la bicicleta.
 
 ### Trabajos adicionales por WhatsApp
 
