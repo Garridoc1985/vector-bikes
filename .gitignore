@@ -22,6 +22,7 @@ coverage/
 # Fase 1: imágenes del almacenamiento local y salidas de Playwright
 .storage/
 .storage-e2e/
+/generated-artifacts/
 test-results/
 playwright-report/
 blob-report/

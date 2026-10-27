@@ -124,7 +124,7 @@ export function DayFieldset({
       )}
       {empty && (
         <p class="ruler-note">
-          No hay días disponibles en las próximas dos semanas. Escríbenos a info@vectorbikes.cl.
+          No hay días disponibles en los próximos 30 días. Escríbenos a info@vectorbikes.cl.
         </p>
       )}
       {days.length > 0 && (

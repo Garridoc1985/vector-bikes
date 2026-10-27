@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type ApiDay,
   type State,
+  bookingAvailabilityUrl,
   bookingReducer,
   firstErrorTarget,
   formErrorsFrom,
@@ -37,6 +38,15 @@ function ready(days: ApiDay[]): State {
 }
 
 describe("bookingReducer", () => {
+  it("solicita al selector el horizonte completo de 30 días anunciado", () => {
+    expect(bookingAvailabilityUrl("2026-09-16", "taller")).toBe(
+      "/api/disponibilidad?desde=2026-09-16&dias=30&modo=taller",
+    );
+    expect(bookingAvailabilityUrl("2026-09-16", "retiro")).toBe(
+      "/api/disponibilidad?desde=2026-09-16&dias=30&modo=retiro",
+    );
+  });
+
   it("limpia el bloque al cambiar de modalidad", () => {
     const state: State = {
       ...ready([day("2026-09-16")]),

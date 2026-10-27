@@ -1,5 +1,11 @@
 export type Mode = "taller" | "retiro";
 
+export const BOOKING_AVAILABILITY_DAYS = 30;
+
+export function bookingAvailabilityUrl(today: string, mode: Mode): string {
+  return `/api/disponibilidad?desde=${today}&dias=${BOOKING_AVAILABILITY_DAYS}&modo=${mode}`;
+}
+
 export type ApiDay = {
   date: string;
   status: "open" | "closed" | "holiday" | "full" | "blocked";

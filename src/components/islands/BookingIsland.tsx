@@ -8,6 +8,7 @@ import {
   type BookingResult,
   type FormErrors,
   type Mode,
+  bookingAvailabilityUrl,
   bookingReducer,
   firstErrorTarget,
   formErrorsFrom,
@@ -41,9 +42,7 @@ export default function BookingIsland({ siteKey }: { siteKey: string }) {
   async function loadAvailability(mode: Mode): Promise<void> {
     dispatch({ type: "loadStart" });
     try {
-      const response = await fetch(
-        `/api/disponibilidad?desde=${todayInSantiago()}&dias=14&modo=${mode}`,
-      );
+      const response = await fetch(bookingAvailabilityUrl(todayInSantiago(), mode));
       if (!response.ok) {
         throw new Error(String(response.status));
       }
