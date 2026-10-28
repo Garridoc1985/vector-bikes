@@ -11,3 +11,71 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+
+# Solo el backend aislado de Vector Bikes Test. Servicios, GEO y el asistente
+# siguen resolviéndose en este sitio; no se redirige toda la ruta /api.
+[[redirects]]
+  from = "/api/disponibilidad"
+  to = "https://vector-bikes-test.replit.app/api/disponibilidad"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/reservas"
+  to = "https://vector-bikes-test.replit.app/api/reservas"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/health"
+  to = "https://vector-bikes-test.replit.app/api/health"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/reservas/*"
+  to = "https://vector-bikes-test.replit.app/reservas/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/admin"
+  to = "https://vector-bikes-test.replit.app/admin"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/admin/*"
+  to = "https://vector-bikes-test.replit.app/admin/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/taller"
+  to = "https://vector-bikes-test.replit.app/taller"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/taller/*"
+  to = "https://vector-bikes-test.replit.app/taller/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/aprobacion/*"
+  to = "https://vector-bikes-test.replit.app/aprobacion/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/informe/*"
+  to = "https://vector-bikes-test.replit.app/informe/:splat"
+  status = 200
+  force = true
+
+# Los assets estáticos locales tienen prioridad; solo faltantes van al backend.
+[[redirects]]
+  from = "/_astro/*"
+  to = "https://vector-bikes-test.replit.app/_astro/:splat"
+  status = 200

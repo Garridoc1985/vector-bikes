@@ -17,6 +17,7 @@ type FieldsProps = {
   form: FormValues;
   errors: State["errors"];
   isPickup: boolean;
+  testMode?: boolean;
   turnstileRef: Ref<HTMLDivElement>;
   onField: (field: keyof FormValues, value: string | boolean) => void;
 };
@@ -106,11 +107,11 @@ function PhoneInput(props: FieldsProps) {
 }
 
 export function BookingFields(props: FieldsProps) {
-  const { errors, form, isPickup, onField, turnstileRef } = props;
+  const { errors, form, isPickup, testMode = false, onField, turnstileRef } = props;
   return (
     <fieldset>
       <legend>
-        <span class="mono">4</span> Tus datos
+        <span class="mono">4</span> {testMode ? "Datos ficticios" : "Tus datos"}
       </legend>
       <div class="fields">
         <Field id="f-nombre" label="Nombre" error={errors.nombre}>
@@ -128,7 +129,11 @@ export function BookingFields(props: FieldsProps) {
         <Field
           id="f-mail"
           label="Correo"
-          help="Aquí llega la confirmación y el enlace para cancelar."
+          help={
+            testMode
+              ? "Usa un correo terminado en .invalid. No se envían notificaciones."
+              : "Aquí llega la confirmación y el enlace para cancelar."
+          }
           error={errors.correo}
         >
           <input {...bind(props, "correo")} type="email" autocomplete="email" />
@@ -182,7 +187,9 @@ export function BookingFields(props: FieldsProps) {
             }
           />
           <span>
-            Acepto que Vector Bikes use estos datos solo para gestionar mi reserva, según el{" "}
+            {testMode
+              ? "Acepto registrar estos datos ficticios únicamente para la prueba, según el"
+              : "Acepto que Vector Bikes use estos datos solo para gestionar mi reserva, según el"}{" "}
             <a href="/privacidad">aviso de privacidad</a>.
           </span>
         </label>
@@ -191,21 +198,23 @@ export function BookingFields(props: FieldsProps) {
             {errors.consentimiento}
           </span>
         )}
-        <label class="consent full" for="f-whatsapp">
-          <input
-            type="checkbox"
-            id="f-whatsapp"
-            name="whatsapp_consentimiento"
-            checked={form.whatsappConsent}
-            onChange={(event) =>
-              onField("whatsappConsent", (event.currentTarget as HTMLInputElement).checked)
-            }
-          />
-          <span>
-            Autorizo que Vector Bikes me contacte por WhatsApp al número indicado para coordinar
-            aspectos operativos de esta reserva. Es opcional y no recibiré publicidad.
-          </span>
-        </label>
+        {!testMode && (
+          <label class="consent full" for="f-whatsapp">
+            <input
+              type="checkbox"
+              id="f-whatsapp"
+              name="whatsapp_consentimiento"
+              checked={form.whatsappConsent}
+              onChange={(event) =>
+                onField("whatsappConsent", (event.currentTarget as HTMLInputElement).checked)
+              }
+            />
+            <span>
+              Autorizo que Vector Bikes me contacte por WhatsApp al número indicado para coordinar
+              aspectos operativos de esta reserva. Es opcional y no recibiré publicidad.
+            </span>
+          </label>
+        )}
         <div class="field full" ref={turnstileRef}></div>
       </div>
     </fieldset>

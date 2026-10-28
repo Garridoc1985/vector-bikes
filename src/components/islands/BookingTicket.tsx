@@ -5,16 +5,20 @@ export function BookingTicket({
   state,
   chosen,
   isPickup,
+  testMode = false,
 }: {
   state: State;
   chosen: string[];
   isPickup: boolean;
+  testMode?: boolean;
 }) {
   const done = state.submit.status === "success" && state.result !== null;
+  const confirmLabel = testMode ? "Confirmar reserva ficticia" : "Confirmar reserva";
+  const submittingLabel = testMode ? "Confirmando prueba…" : "Confirmando…";
   return (
     <aside class="ticket" aria-live="polite">
       <div class="ticket-head">
-        <span class="label">Orden de reserva</span>
+        <span class="label">{testMode ? "Reserva ficticia" : "Orden de reserva"}</span>
         <span class="mono" style="font-size:.8rem">
           {state.selectedDate && state.selectedStart
             ? ticketCode(state.selectedDate, state.selectedStart)
@@ -36,11 +40,15 @@ export function BookingTicket({
         </div>
         <div class="row">
           <dt>Pago</dt>
-          <dd>Efectivo, transferencia o tarjeta, al recibir tu bici</dd>
+          <dd>
+            {testMode
+              ? "Sin cobro · solo prueba"
+              : "Efectivo, transferencia o tarjeta, al recibir tu bici"}
+          </dd>
         </div>
       </dl>
       <div class="ticket-total">
-        <span class="label">Recargo</span>
+        <span class="label">{testMode ? "Recargo de referencia" : "Recargo"}</span>
         <strong>{formatClp(isPickup ? PICKUP_FEE_CLP : 0)}</strong>
       </div>
       {!done && (
@@ -56,20 +64,38 @@ export function BookingTicket({
             id="submit"
             disabled={state.submit.status === "submitting"}
           >
-            {state.submit.status === "submitting" ? "Confirmando…" : "Confirmar reserva"}
+            {state.submit.status === "submitting" ? submittingLabel : confirmLabel}
           </button>
           <p>
-            El diagnóstico y los repuestos se cotizan en el taller. Si hay un trabajo extra, te
-            llamamos antes.
+            {testMode
+              ? "No se realizarán trabajos, retiros ni cobros. No se envían notificaciones."
+              : "El diagnóstico y los repuestos se cotizan en el taller. Si hay un trabajo extra, te llamamos antes."}
           </p>
         </div>
       )}
       {done && state.result && (
         <div class="done">
-          <span class="label">Reserva confirmada</span>
+          <span class="label">
+            {testMode ? "Reserva ficticia registrada" : "Reserva confirmada"}
+          </span>
           <strong>{state.result.code}</strong>
-          <p>Te enviamos la confirmación a {state.form.correo}.</p>
-          <p>Si necesitas cancelar, usa el enlace del correo.</p>
+          {testMode ? (
+            <>
+              <p>
+                Reserva ficticia guardada en el entorno de pruebas. No se enviaron correos ni
+                mensajes de WhatsApp.
+              </p>
+              <p>
+                Para revisar o cancelar, ingresa al <a href="/admin">panel de pruebas</a> con una
+                cuenta de prueba autorizada.
+              </p>
+            </>
+          ) : (
+            <>
+              <p>Te enviamos la confirmación a {state.form.correo}.</p>
+              <p>Si necesitas cancelar, usa el enlace del correo.</p>
+            </>
+          )}
         </div>
       )}
     </aside>

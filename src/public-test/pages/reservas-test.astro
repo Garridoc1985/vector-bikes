@@ -1,0 +1,36 @@
+---
+import BookingIsland from "../../components/islands/BookingIsland.tsx";
+import Base from "../../layouts/Base.astro";
+
+const siteKey = "1x00000000000000000000AA";
+---
+
+<Base
+  title="Reservas ficticias de prueba | Vector Bikes Test"
+  description="Prueba del formulario de reservas de Vector Bikes con datos ficticios. No genera una reserva real ni un retiro del taller."
+  path="/reservas-test"
+  noindex={true}
+  bookingEnabled={false}
+>
+  <section class="section" aria-labelledby="reservas-test-titulo">
+    <div class="wrap">
+      <span class="label">Vector Bikes Test · Entorno de pruebas</span>
+      <h1 id="reservas-test-titulo">Prueba una reserva ficticia.</h1>
+      <aside role="note" aria-label="Condiciones de la prueba">
+        <p><strong>Esta prueba no reserva una hora real ni solicita un retiro del taller.</strong> Usa únicamente datos ficticios. No ingreses datos personales de clientes ni los tuyos.</p>
+        <p>Usa un nombre y una bicicleta de prueba, un correo como <strong>prueba@vectorbikes.invalid</strong> y, para el retiro, una dirección ficticia en la comuna seleccionada. Los correos y mensajes de WhatsApp de esta prueba no se envían.</p>
+        <p class="ruler-note" data-test-phone-range="+56900000000:+56900009999">Teléfono de prueba: después del prefijo fijo <strong>+56 9</strong>, escribe <strong>00000001</strong>. El rango habilitado va de +56 9 0000 0000 a +56 9 0000 9999. No uses un número real.</p>
+      </aside>
+      <div class="sec-head">
+        <span class="label">Reserva ficticia</span>
+        <div>
+          <h2>Elige día y bloque.</h2>
+          <p>El selector muestra 14 días corridos desde hoy, según el horario de Chile. Incluye sábados, domingos y feriados; los días cerrados se identifican y no se pueden seleccionar.</p>
+        </div>
+      </div>
+      <noscript><p>Activa JavaScript para probar el formulario de reservas.</p></noscript>
+      <BookingIsland siteKey={siteKey} testMode={true} client:visible />
+      <p><a href="/">Volver al inicio</a> · <a href="/servicios">Ver servicios de Vector Bikes</a></p>
+    </div>
+  </section>
+</Base>

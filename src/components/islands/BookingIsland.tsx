@@ -21,7 +21,13 @@ import {
   validateForm,
 } from "./booking-state.ts";
 
-export default function BookingIsland({ siteKey }: { siteKey: string }) {
+export default function BookingIsland({
+  siteKey,
+  testMode = false,
+}: {
+  siteKey: string;
+  testMode?: boolean;
+}) {
   const [state, dispatch] = useReducer(bookingReducer, initialState);
   const today = useSantiagoDate();
   const currentMode = useRef(state.mode);
@@ -181,11 +187,12 @@ export default function BookingIsland({ siteKey }: { siteKey: string }) {
           form={state.form}
           errors={state.errors}
           isPickup={isPickup}
+          testMode={testMode}
           turnstileRef={turnstileRef}
           onField={(field, value) => dispatch({ type: "setField", field, value })}
         />
       </div>
-      <BookingTicket state={state} chosen={chosen} isPickup={isPickup} />
+      <BookingTicket state={state} chosen={chosen} isPickup={isPickup} testMode={testMode} />
     </form>
   );
 }
