@@ -21,7 +21,7 @@ export default defineConfig({
         "astro:build:done": async ({ dir }) => {
           await writeFile(
             new URL("robots.txt", dir),
-            "User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /taller\nDisallow: /api\nDisallow: /reservas\nDisallow: /aprobacion\nDisallow: /informe\n\nSitemap: https://vectorbikestest.cl/sitemap-index.xml\nSitemap: https://vectorbikestest.cl/geo/sitemap.xml\n",
+            "User-agent: *\nAllow: /\nAllow: /reservas-test\nDisallow: /admin\nDisallow: /taller\nDisallow: /api\nDisallow: /reservas\nDisallow: /aprobacion\nDisallow: /informe\n\nSitemap: https://vectorbikestest.cl/sitemap-index.xml\nSitemap: https://vectorbikestest.cl/geo/sitemap.xml\n",
           );
           await writeFile(new URL("_headers", dir), "/*\n  X-Content-Type-Options: nosniff\n");
         },
