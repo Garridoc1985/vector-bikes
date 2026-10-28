@@ -1,5 +1,5 @@
-modules = ["nodejs-24", "postgresql-16"]
-run = "sh -c 'corepack pnpm@12.4.2 build && corepack pnpm@12.4.2 start'"
+modules = ["nodejs-24", "postgresql-16", "python-base-3.13"]
+run = "sh -c 'corepack pnpm@12.4.2 install --frozen-lockfile && corepack pnpm@12.4.2 build && HOST=0.0.0.0 PORT=5000 corepack pnpm@12.4.2 start'"
 
 [deployment]
 deploymentTarget = "cloudrun"
@@ -24,6 +24,7 @@ packageSearch = false
 
 [nix]
 channel = "stable-25_05"
+packages = ["glib", "nspr", "nss", "atk", "at-spi2-core", "dbus", "xorg.libX11", "xorg.libXcomposite", "xorg.libXdamage", "xorg.libXext", "xorg.libXfixes", "xorg.libXrandr", "mesa", "xorg.libxcb", "libxkbcommon", "alsa-lib", "cairo", "cups", "expat", "fontconfig", "pango", "gtk3", "libdrm", "libgbm"]
 
 [workflows]
 runButton = "Project"
@@ -43,7 +44,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "HOST=0.0.0.0 PORT=5000 node --env-file-if-exists=.env dist/server/entry.mjs"
+args = "sh -c 'corepack pnpm@12.4.2 install --frozen-lockfile && corepack pnpm@12.4.2 build && HOST=0.0.0.0 PORT=5000 corepack pnpm@12.4.2 start'"
 waitForPort = 5000
 
 [workflows.workflow.metadata]

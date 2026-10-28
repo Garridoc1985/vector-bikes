@@ -1,7 +1,9 @@
 # Dependencias y salidas de build
 node_modules/
 dist/
+dist-public-test/
 .astro/
+.netlify/
 coverage/
 
 # Entorno: nunca se commitean valores reales
@@ -22,9 +24,19 @@ coverage/
 # Fase 1: imágenes del almacenamiento local y salidas de Playwright
 .storage/
 .storage-e2e/
+/generated-artifacts/
 test-results/
 playwright-report/
 blob-report/
+
+# Solo los cuatro archivos de publicación pública revisados se versionan.
+public/geo/*
+!public/geo/index.html
+!public/geo/knowledge.json
+!public/geo/manifest.json
+!public/geo/sitemap.xml
+public/.geo-stage-*/
+.geo-backup/
 
 # Documentos de Word: viven en el disco del dueño, no en el repositorio
 *.docx

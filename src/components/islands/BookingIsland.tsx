@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useReducer, useRef } from "preact/hooks";
+import { useCallback, useEffect, useReducer, useRef } from "preact/hooks";
 import { BookingFields, FIELD_IDS } from "./BookingFields.tsx";
 import { BLOCK_FIELDSET_ID, BlockFieldset, DayFieldset, ModeFieldset } from "./BookingSchedule.tsx";
 import { BookingTicket } from "./BookingTicket.tsx";
 import { useTurnstile } from "./turnstile.ts";
+import { todayInSantiago } from "./booking-dates.ts";
+import { useSantiagoDate } from "./useSantiagoDate.ts";
 import {
   type ApiDay,
   type BookingResult,
   type FormErrors,
   type Mode,
+  bookingAvailabilityUrl,
   bookingReducer,
   firstErrorTarget,
   formErrorsFrom,
@@ -18,15 +21,12 @@ import {
   validateForm,
 } from "./booking-state.ts";
 
-const TIMEZONE = "America/Santiago";
-
-function todayInSantiago(): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: TIMEZONE }).format(new Date());
-}
-
 export default function BookingIsland({ siteKey }: { siteKey: string }) {
   const [state, dispatch] = useReducer(bookingReducer, initialState);
-  const today = useMemo(todayInSantiago, []);
+  const today = useSantiagoDate();
+  const currentMode = useRef(state.mode);
+  currentMode.current = state.mode;
+  const availabilityRequest = useRef({ id: 0, controller: null as AbortController | null });
   const turnstileRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const turnstile = useTurnstile(siteKey, turnstileRef, (token) =>
@@ -38,25 +38,39 @@ export default function BookingIsland({ siteKey }: { siteKey: string }) {
   const chosen = selectedBlocks(state);
   const isPickup = state.mode === "retiro";
 
-  async function loadAvailability(mode: Mode): Promise<void> {
+  const loadAvailability = useCallback(async (mode: Mode, date: string): Promise<void> => {
+    const request = availabilityRequest.current;
+    request.controller?.abort();
+    const controller = new AbortController();
+    request.controller = controller;
+    const id = ++request.id;
+    const isCurrent = () =>
+      id === request.id && mode === currentMode.current && date === todayInSantiago();
     dispatch({ type: "loadStart" });
     try {
-      const response = await fetch(
-        `/api/disponibilidad?desde=${todayInSantiago()}&dias=14&modo=${mode}`,
-      );
+      const response = await fetch(bookingAvailabilityUrl(date, mode), {
+        signal: controller.signal,
+      });
       if (!response.ok) {
         throw new Error(String(response.status));
       }
       const payload = (await response.json()) as { days: ApiDay[]; capacity: number };
-      dispatch({ type: "loadSuccess", days: payload.days, capacity: payload.capacity });
+      if (isCurrent()) {
+        dispatch({ type: "loadSuccess", days: payload.days, capacity: payload.capacity });
+      }
     } catch {
-      dispatch({ type: "loadError" });
+      if (isCurrent() && !controller.signal.aborted) dispatch({ type: "loadError" });
     }
-  }
+  }, []);
 
   useEffect(() => {
-    void loadAvailability(state.mode);
-  }, [state.mode]);
+    if (today === "") return;
+    void loadAvailability(state.mode, today);
+    return () => {
+      ++availabilityRequest.current.id;
+      availabilityRequest.current.controller?.abort();
+    };
+  }, [state.mode, today, loadAvailability]);
 
   /** Foco y desplazamiento al primer error; el bloque lleva a la regla de horarios. */
   function revealFirstError(errors: FormErrors): void {
@@ -136,7 +150,7 @@ export default function BookingIsland({ siteKey }: { siteKey: string }) {
         revealFirstError(formErrorsFrom(body.fields ?? {}));
       }
       if (response.status === 409) {
-        void loadAvailability(state.mode);
+        void loadAvailability(currentMode.current, todayInSantiago());
       }
     } catch {
       dispatch({ type: "submitFailed", status: 0, body: {} });
@@ -154,7 +168,7 @@ export default function BookingIsland({ siteKey }: { siteKey: string }) {
           selectedDate={state.selectedDate}
           today={today}
           onPick={(date) => dispatch({ type: "selectDate", date })}
-          onRetry={() => void loadAvailability(state.mode)}
+          onRetry={() => void loadAvailability(currentMode.current, todayInSantiago())}
         />
         <BlockFieldset
           day={day}

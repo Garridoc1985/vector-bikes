@@ -7,11 +7,13 @@ import { can } from "../auth/permissions.ts";
 import { readRange } from "../booking/availability.ts";
 import { createBooking } from "../booking/create-booking.ts";
 import type { BookingMode } from "../booking/rules.ts";
+import { MAX_BIKES_PER_BOOKING } from "../booking/rules.ts";
 import { addDays, computeDay } from "../booking/slots.ts";
 import type { AppDb } from "../db/client.ts";
 import { workOrders } from "../db/schema-orders.ts";
-import { bookings } from "../db/schema.ts";
+import { type Booking, bookings } from "../db/schema.ts";
 import { notifyBookingCreated } from "../email/notifications.ts";
+import { recordAudit } from "./audit.ts";
 
 export const manualBookingSchema = z
   .strictObject({
@@ -39,6 +41,11 @@ export const manualBookingSchema = z
       .trim()
       .min(5, "Indica qué necesita la bici.")
       .max(1000, "Máximo 1000 caracteres."),
+    bicis: z.coerce.number().int().min(1).max(MAX_BIKES_PER_BOOKING).default(1),
+    bicicleta_2: z.string().trim().max(120, "Máximo 120 caracteres.").optional(),
+    descripcion_2: z.string().trim().max(1000, "Máximo 1000 caracteres.").optional(),
+    bicicleta_3: z.string().trim().max(120, "Máximo 120 caracteres.").optional(),
+    descripcion_3: z.string().trim().max(1000, "Máximo 1000 caracteres.").optional(),
     comuna: z.enum(["Vitacura", "Las Condes"], "Elige Vitacura o Las Condes.").nullish(),
     direccion: z
       .string()
@@ -50,6 +57,21 @@ export const manualBookingSchema = z
     consentimiento: z.literal(true, "Confirma que el cliente aceptó el aviso de privacidad."),
   })
   .superRefine((value, ctx) => {
+    for (const index of [2, 3] as const) {
+      if (value.bicis < index) continue;
+      if ((value[`bicicleta_${index}`]?.length ?? 0) < 2)
+        ctx.addIssue({
+          code: "custom",
+          path: [`bicicleta_${index}`],
+          message: "Indica la marca y el tipo de bici.",
+        });
+      if ((value[`descripcion_${index}`]?.length ?? 0) < 5)
+        ctx.addIssue({
+          code: "custom",
+          path: [`descripcion_${index}`],
+          message: "Indica qué necesita la bici.",
+        });
+    }
     if (value.mode === "retiro") {
       if (!value.comuna)
         ctx.addIssue({ code: "custom", path: ["comuna"], message: "Elige Vitacura o Las Condes." });
@@ -75,8 +97,49 @@ export const manualBookingSchema = z
     }
   });
 
-export type ManualBookingInput = z.infer<typeof manualBookingSchema>;
+export type ManualBookingInput = z.input<typeof manualBookingSchema>;
 type ManualBookingDeps = { notify?: typeof notifyBookingCreated };
+
+function declaredBikes(data: z.output<typeof manualBookingSchema>) {
+  const bikes = [{ bike: data.bicicleta, description: data.descripcion }];
+  for (const index of [2, 3] as const) {
+    if (data.bicis >= index)
+      bikes.push({
+        bike: data[`bicicleta_${index}`] ?? "",
+        description: data[`descripcion_${index}`] ?? "",
+      });
+  }
+  return bikes;
+}
+
+/** Sin nombre, teléfono ni correo: solo lo que identifica la reserva en la agenda. */
+async function auditBookingCreated(
+  db: AppDb,
+  actor: SessionUser,
+  booking: Booking,
+  start: string,
+  now: Date,
+) {
+  await recordAudit(
+    db,
+    {
+      branchId: actor.branchId,
+      actorUserId: actor.id,
+      action: "booking.created",
+      entity: "booking",
+      entityId: booking.id,
+      details: {
+        code: booking.code,
+        serviceDate: booking.serviceDate,
+        start,
+        mode: booking.mode,
+        bikeCount: booking.bikeCount,
+        source: booking.source,
+      },
+    },
+    now,
+  );
+}
 
 export async function createManualBooking(
   db: AppDb,
@@ -91,28 +154,38 @@ export async function createManualBooking(
   const data = parsed.data;
   const phone = normalizePhone(data.telefono);
   if (phone === null) return { ok: false, code: "validation_error" } as const;
-  const result = await createBooking(
-    db,
-    {
-      mode: data.mode,
-      serviceDate: data.service_date,
-      start: data.start,
-      customerName: data.nombre,
-      phoneE164: phone,
-      email: data.correo?.toLowerCase() ?? null,
-      bike: data.bicicleta,
-      description: data.descripcion,
-      comuna: data.comuna ?? null,
-      address: data.direccion ?? null,
-      ipHash: null,
-      whatsappConsent: false,
-      source: data.source,
-    },
-    now,
-  );
+  // `createBooking` conserva su firma y su propia transacción; dentro de esta, Drizzle la anida
+  // como savepoint, así que la auditoría se escribe en la misma transacción que la reserva.
+  const result = await db.transaction(async (tx) => {
+    const created = await createBooking(
+      tx,
+      {
+        mode: data.mode,
+        serviceDate: data.service_date,
+        start: data.start,
+        customerName: data.nombre,
+        phoneE164: phone,
+        email: data.correo?.toLowerCase() ?? null,
+        bike: data.bicicleta,
+        description: data.descripcion,
+        ...(data.bicis > 1 ? { bikes: declaredBikes(data) } : {}),
+        comuna: data.comuna ?? null,
+        address: data.direccion ?? null,
+        ipHash: null,
+        whatsappConsent: false,
+        source: data.source,
+      },
+      now,
+    );
+    if (created.ok) await auditBookingCreated(tx, actor, created.booking, data.start, now);
+    return created;
+  });
   if (result.ok) {
     try {
-      await (deps.notify ?? notifyBookingCreated)(result.booking, result.cancelToken);
+      const extra = declaredBikes(data)
+        .slice(1)
+        .map((bike, index) => ({ position: index + 2, ...bike }));
+      await (deps.notify ?? notifyBookingCreated)(result.booking, result.cancelToken, {}, extra);
     } catch {
       log.error("email.failed", { kind: "manual_booking", code: result.booking.code });
     }
@@ -120,16 +193,15 @@ export async function createManualBooking(
   return result;
 }
 
-// bookings es la agenda única de la sucursal; no tiene branch_id.
-export function listUpcomingBookings(db: AppDb, today: string, days = 14) {
-  return db
-    .select({
-      ...getTableColumns(bookings),
-      orderId: workOrders.id,
-      orderNumber: workOrders.number,
-    })
+/**
+ * Reservas próximas con las órdenes que ya se abrieron para cada una. Son dos consultas y no un
+ * `leftJoin`: una reserva de tres bicis admite tres órdenes, y el join la repetiría una vez por
+ * orden. `bookings` es la agenda única de la sucursal; no tiene `branch_id`.
+ */
+export async function listUpcomingBookings(db: AppDb, today: string, days = 14) {
+  const rows = await db
+    .select(getTableColumns(bookings))
     .from(bookings)
-    .leftJoin(workOrders, eq(workOrders.bookingId, bookings.id))
     .where(
       and(
         between(bookings.serviceDate, today, addDays(today, days - 1)),
@@ -137,11 +209,41 @@ export function listUpcomingBookings(db: AppDb, today: string, days = 14) {
       ),
     )
     .orderBy(asc(bookings.serviceDate), asc(bookings.startsAt), asc(bookings.id));
+  if (rows.length === 0) return [];
+  const orders = await db
+    .select({
+      id: workOrders.id,
+      number: workOrders.number,
+      bookingId: workOrders.bookingId,
+      position: workOrders.bookingPosition,
+    })
+    .from(workOrders)
+    .where(
+      inArray(
+        workOrders.bookingId,
+        rows.map((row) => row.id),
+      ),
+    )
+    .orderBy(asc(workOrders.bookingPosition));
+  return rows.map((row) => ({
+    ...row,
+    orders: orders
+      .filter((order) => order.bookingId === row.id)
+      .map(({ id, number, position }) => ({ id, number, position })),
+  }));
 }
 
-export async function freeBlocks(db: AppDb, date: string, mode: BookingMode, now: Date) {
-  const dayData = await readRange(db, date, date);
-  return computeDay({ date, mode, now, ...dayData(date) }).blocks.filter(
+/** `excludeBookingId`: la reserva que se reprograma no se cuenta contra sí misma. */
+export async function freeBlocks(
+  db: AppDb,
+  date: string,
+  mode: BookingMode,
+  now: Date,
+  bikeCount = 1,
+  excludeBookingId?: string,
+) {
+  const dayData = await readRange(db, date, date, excludeBookingId);
+  return computeDay({ date, mode, now, bikeCount, ...dayData(date) }).blocks.filter(
     (block) => block.state === "free",
   );
 }

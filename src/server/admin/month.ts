@@ -56,7 +56,7 @@ const STATE_TEXT: Record<MonthDayState, string> = {
   closed: "cerrado",
 };
 
-/** "Lunes 28 de septiembre, 2 de 4 reservas", con el estado y si está fuera de plazo. */
+/** "Lunes 28 de septiembre, 2 de 4 cupos", con el estado y si está fuera de plazo. */
 function labelOf(day: Omit<MonthDay, "label">): string {
   const local = DateTime.fromISO(day.date, { zone: TIMEZONE }).setLocale("es");
   const name = local.toFormat("cccc d 'de' LLLL");
@@ -68,7 +68,7 @@ function labelOf(day: Omit<MonthDay, "label">): string {
   parts.push(day.state === "holiday" ? `${state}: ${day.holidayName}` : state);
   const open = day.state === "free" || day.state === "booked" || day.state === "full";
   if (open || day.used > 0) {
-    parts.push(`${day.used} de ${DAILY_CAPACITY} reservas`);
+    parts.push(`${day.used} de ${DAILY_CAPACITY} cupos`);
   }
   if (day.outside === "past") {
     parts.push("pasado");

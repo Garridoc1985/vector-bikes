@@ -46,7 +46,7 @@ const current =
   booking.status === "confirmed"
     ? (await listUpcomingBookings(db, booking.serviceDate, 1)).find((row) => row.id === booking.id)
     : null;
-let reschedulable = booking.status === "confirmed" && current?.orderId === null;
+let reschedulable = booking.status === "confirmed" && current?.orders.length === 0;
 const unavailableMessage = "Esta reserva ya no se puede reprogramar.";
 const selectionSchema = z.object({ service_date: z.iso.date("Elige una fecha válida.") });
 const rescheduleSchema = selectionSchema.extend({
@@ -102,9 +102,12 @@ if (!reschedulable) {
     };
     Astro.response.status =
       result.code === "unchanged" || result.code === "slot_unavailable" ? 422 : 409;
-    error = messages[result.code];
+    // El detalle del bloque va solo en su campo; arriba queda el aviso general.
+    if (result.code === "slot_unavailable") {
+      fieldErrors.start = messages.slot_unavailable;
+      error = "Revisa los datos de la reserva.";
+    } else error = messages[result.code];
     if (result.code === "not_reschedulable") reschedulable = false;
-    if (result.code === "slot_unavailable") fieldErrors.start = error;
   }
 }
 const selected = selectionSchema.safeParse(values);
@@ -121,6 +124,8 @@ const blocks =
         selected.data.service_date,
         booking.mode === "retiro" ? "retiro" : "taller",
         now,
+        booking.bikeCount,
+        booking.id,
       )
     : [];
 const currentDate = DateTime.fromISO(booking.serviceDate, { zone: TIMEZONE })

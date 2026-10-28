@@ -79,7 +79,7 @@ const warning = holidayWarning(now);
                     <td>
                       <a href={`tel:${booking.phoneE164}`}>{booking.phoneE164}</a>
                     </td>
-                    <td>{booking.bike}</td>
+                    <td>{booking.bike}{booking.bikeCount > 1 && <span class="label"> · {booking.bikeCount} bicis</span>}</td>
                     <td>{booking.description}</td>
                     <td>{booking.comuna ? `${booking.comuna} / ${booking.address ?? ""}` : "—"}</td>
                     <td>{STATUS_LABELS[booking.status] ?? booking.status}</td>

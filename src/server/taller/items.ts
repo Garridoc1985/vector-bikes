@@ -11,22 +11,48 @@ import type { BikeType } from "./rules.ts";
 import { TERMINAL_STATUSES } from "./rules.ts";
 import { canAccessOrder } from "./status.ts";
 
+// Los mensajes llegan al campo del formulario de Líneas: en español y sin jerga de zod.
+const PRICE_MESSAGE = "Escribe un monto entero en pesos, entre 0 y 10.000.000.";
+const QUANTITY_MESSAGE = "Escribe una cantidad entera entre 1 y 100.";
+const itemPriceSchema = z
+  .union([z.number(), z.string().trim().regex(/^\d+$/, PRICE_MESSAGE)])
+  .transform(Number)
+  .pipe(z.number().int(PRICE_MESSAGE).min(0, PRICE_MESSAGE).max(10_000_000, PRICE_MESSAGE));
+const quantitySchema = z.coerce
+  .number(QUANTITY_MESSAGE)
+  .int(QUANTITY_MESSAGE)
+  .min(1, QUANTITY_MESSAGE)
+  .max(100, QUANTITY_MESSAGE);
 export const catalogItemSchema = z.strictObject({
   serviceId: z.uuid({ error: "Selecciona un servicio del catálogo." }),
-  quantity: z.coerce.number().int().min(1).max(100).default(1),
+  quantity: quantitySchema.default(1),
   origin: z.enum(["inicial", "adicional"]).default("inicial"),
 });
 
-const itemPriceSchema = z
-  .union([z.number(), z.string().trim().regex(/^\d+$/)])
-  .transform(Number)
-  .pipe(z.number().int().min(0).max(10_000_000));
 export const partItemSchema = z.strictObject({
-  description: z.string().trim().min(2).max(200),
-  quantity: z.coerce.number().int().min(1).max(100),
+  description: z
+    .string()
+    .trim()
+    .min(2, "Escribe una descripción de 2 a 200 caracteres.")
+    .max(200, "Escribe una descripción de 2 a 200 caracteres."),
+  quantity: quantitySchema,
   unitPriceClp: itemPriceSchema,
 });
 export const priceOverrideSchema = z.strictObject({ unitPriceClp: itemPriceSchema });
+export const priceOverridesSchema = z
+  .array(z.strictObject({ itemId: z.uuid(), unitPriceClp: itemPriceSchema }))
+  .superRefine((prices, ctx) => {
+    const seen = new Set<string>();
+    for (const [index, price] of prices.entries()) {
+      if (seen.has(price.itemId))
+        ctx.addIssue({
+          code: "custom",
+          path: [index, "itemId"],
+          message: "La línea está repetida.",
+        });
+      seen.add(price.itemId);
+    }
+  });
 
 async function accessibleOrder(db: AppDb, actor: SessionUser, orderId: string) {
   const header = await getOrderHeader(db, actor, orderId);
@@ -245,6 +271,60 @@ export async function overrideItemPrice(
       now,
     );
     return { ok: true } as const;
+  });
+}
+
+async function writeItemPrice(
+  db: AppDb,
+  actor: SessionUser,
+  item: typeof workOrderItems.$inferSelect,
+  unitPriceClp: number,
+  now: Date,
+) {
+  await db
+    .update(workOrderItems)
+    .set({ unitPriceClp, updatedAt: now })
+    .where(and(eq(workOrderItems.branchId, actor.branchId), eq(workOrderItems.id, item.id)));
+  await recordAudit(
+    db,
+    {
+      branchId: actor.branchId,
+      actorUserId: actor.id,
+      action: "item.price_changed",
+      entity: "work_order",
+      entityId: item.workOrderId,
+      details: { itemId: item.id, before: item.unitPriceClp, after: unitPriceClp },
+    },
+    now,
+  );
+}
+
+export async function overrideItemPrices(
+  db: AppDb,
+  actor: SessionUser,
+  orderId: string,
+  input: unknown,
+  now: Date,
+) {
+  if (!can(actor.role, "items.override_price")) return { ok: false, code: "forbidden" } as const;
+  const parsed = priceOverridesSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, code: "validation_error" } as const;
+  return db.transaction(async (tx) => {
+    const access = await lockOrder(tx, actor, orderId);
+    if (!access.ok) return access;
+    const changes: { item: typeof workOrderItems.$inferSelect; unitPriceClp: number }[] = [];
+    // Validar y bloquear todo antes de escribir: devolver un error no revierte una transacción.
+    for (const price of parsed.data) {
+      const locked = await lockActiveItem(tx, actor, price.itemId);
+      if (!locked.ok || locked.item.workOrderId !== orderId)
+        return { ok: false, code: "not_found" } as const;
+      if (locked.item.unitPriceClp !== price.unitPriceClp)
+        changes.push({ item: locked.item, unitPriceClp: price.unitPriceClp });
+    }
+    for (const change of changes)
+      await writeItemPrice(tx, actor, change.item, change.unitPriceClp, now);
+    if (changes.length > 0) await recomputeOrderTotals(tx, orderId, now);
+    return { ok: true, updated: changes.length } as const;
   });
 }
 

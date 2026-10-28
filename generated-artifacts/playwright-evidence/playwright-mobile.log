@@ -1,0 +1,35 @@
+
+> vector-bikes@1.0.0 test:public /home/runner/workspace
+> playwright test --config playwright.public.config.ts --project=mobile
+
+{
+  severity_local: 'NOTICE',
+  severity: 'NOTICE',
+  code: '42P06',
+  message: 'schema "drizzle" already exists, skipping',
+  file: 'schemacmds.c',
+  line: '135',
+  routine: 'CreateSchemaCommand'
+}
+{
+  severity_local: 'NOTICE',
+  severity: 'NOTICE',
+  code: '42P07',
+  message: 'relation "__drizzle_migrations" already exists, skipping',
+  file: 'parse_utilcmd.c',
+  line: '210',
+  routine: 'transformCreateStmt'
+}
+
+Running 4 tests using 1 worker
+
+BROWSER_DIAGNOSTICS mobile la landing permite llegar a reservas y contactos públicos: {   "consoleErrors": [],   "pageErrors": [],   "failedRequests": [] }
+  ✓  1 [mobile] › e2e/public-journeys.spec.ts:106:1 › la landing permite llegar a reservas y contactos públicos (2.9s)
+BROWSER_DIAGNOSTICS mobile el selector completa una reserva de retiro y valida el formulario: {   "consoleErrors": [],   "pageErrors": [],   "failedRequests": [] }
+  ✓  2 [mobile] › e2e/public-journeys.spec.ts:168:1 › el selector completa una reserva de retiro y valida el formulario (2.4s)
+BROWSER_DIAGNOSTICS mobile selecciona y confirma un día posterior al 14 y respeta el máximo de 31: {   "consoleErrors": [],   "pageErrors": [],   "failedRequests": [] }
+  ✓  3 [mobile] › e2e/public-journeys.spec.ts:251:1 › selecciona y confirma un día posterior al 14 y respeta el máximo de 31 (1.9s)
+BROWSER_DIAGNOSTICS mobile los tokens válidos abren los flujos públicos y los inválidos no: {   "consoleErrors": [     "Failed to load resource: the server responded with a status of 404 (OK)",     "Failed to load resource: the server responded with a status of 404 (OK)",     "Failed to load resource: the server responded with a status of 404 (OK)"   ],   "pageErrors": [],   "failedRequests": [] }
+  ✓  4 [mobile] › e2e/public-tokens.spec.ts:73:1 › los tokens válidos abren los flujos públicos y los inválidos no (2.6s)
+
+  4 passed (14.7s)

@@ -4,6 +4,8 @@ import { auditLog } from "../db/schema-taller.ts";
 import { users } from "../db/schema.ts";
 
 export type AuditAction =
+  | "booking.created"
+  | "booking.cancelled"
   | "booking.rescheduled"
   | "user.created"
   | "user.deactivated"

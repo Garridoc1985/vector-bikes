@@ -82,6 +82,7 @@ async function uploadOnePhoto(page: Page): Promise<void> {
   const input = page.getByLabel("Tomar foto", { exact: true });
   await expect(input).toBeEnabled();
   await input.setInputFiles([{ name: "recepcion-1.jpg", mimeType: "image/jpeg", buffer }]);
+  await page.getByRole("button", { name: /^Subir \d+ fotos?$/ }).tap();
   await expect(page.getByRole("img", { name: "Foto de recepción 1", exact: true })).toHaveAttribute(
     "src",
     /^\/taller\/media\//,

@@ -163,7 +163,7 @@ describe("aviso al cliente cuando se finaliza la recepción", () => {
     await ready();
 
     expect(await finalize()).toEqual({ ok: true });
-    expect(consoleOutbox).toHaveLength(1);
+    expect(consoleOutbox).toHaveLength(2);
     expect(consoleOutbox[0]?.to).toBe(CUSTOMER_EMAIL);
     expect(consoleOutbox[0]?.subject).toContain("Recibimos tu bicicleta");
     expect(consoleOutbox[0]?.subject).toContain("OT-00001");
@@ -202,12 +202,12 @@ describe("aviso al cliente cuando se finaliza la recepción", () => {
   it("una segunda finalización no manda un segundo correo", async () => {
     await ready();
     await finalize();
-    expect(consoleOutbox).toHaveLength(1);
+    expect(consoleOutbox).toHaveLength(2);
 
     const again = await finalize();
 
     expect(again.ok).toBe(false);
-    expect(consoleOutbox).toHaveLength(1);
+    expect(consoleOutbox).toHaveLength(2);
     expect(await receivedAudits()).toHaveLength(1);
   });
 
@@ -238,7 +238,7 @@ describe("aviso al cliente cuando se finaliza la recepción", () => {
     );
 
     expect(result).toEqual({ ok: true });
-    expect(consoleOutbox).toHaveLength(1);
+    expect(consoleOutbox).toHaveLength(2);
     expect(consoleOutbox[0]?.text).toContain("Ajuste de frenos");
     expect(consoleOutbox[0]?.text).toContain("$18.000");
     expect(consoleOutbox[0]?.text).not.toContain("Te enviaremos el presupuesto");

@@ -12,6 +12,7 @@ import {
   STATUS_LABELS,
   timeRange,
 } from "../../../server/admin/agenda.ts";
+import { listBookingBikes } from "../../../server/booking/booking-bikes.ts";
 import { isAllowedOrigin } from "../../../server/api/handlers.ts";
 import { loginRedirect, requireAdmin, SESSION_COOKIE } from "../../../server/auth/admin-auth.ts";
 import { can, forbiddenResponse } from "../../../server/auth/permissions.ts";
@@ -98,7 +99,7 @@ if (Astro.request.method === "POST") {
     } else {
       const action = adminActionSchema.safeParse(form.get("accion"));
       const result = action.success
-        ? await applyAdminAction(getDb(), id, action.data, new Date())
+        ? await applyAdminAction(getDb(), id, action.data, new Date(), admin)
         : ({ ok: false, code: "invalid_transition" } as const);
       if (result.ok && action.success) {
         return Astro.redirect(`/admin/reservas/${id}?hecho=${action.data}`, 303);
@@ -114,6 +115,7 @@ if (Astro.request.method === "POST") {
 }
 
 const booking = await bookingDetail(getDb(), id);
+const extraBikes = booking ? await listBookingBikes(getDb(), booking.id) : [];
 if (!booking) {
   Astro.response.status = 404;
 }
@@ -198,14 +200,32 @@ const noticeStatusLabel: Record<string, string> = {
                 {booking.email ? <a href={`mailto:${booking.email}`}>{booking.email}</a> : "Sin correo"}
               </dd>
             </div>
+            {booking.bikeCount > 1 && (
+              <div class="row">
+                <dt>Bicicletas</dt>
+                <dd>{booking.bikeCount} bicicletas</dd>
+              </div>
+            )}
             <div class="row">
-              <dt>Bicicleta</dt>
+              <dt>{booking.bikeCount > 1 ? "Bicicleta 1" : "Bicicleta"}</dt>
               <dd>{booking.bike}</dd>
             </div>
             <div class="row">
-              <dt>Qué necesita</dt>
+              <dt>{booking.bikeCount > 1 ? "Qué necesita la bici 1" : "Qué necesita"}</dt>
               <dd>{booking.description}</dd>
             </div>
+            {extraBikes.map((extra) => (
+              <>
+                <div class="row">
+                  <dt>Bicicleta {extra.position}</dt>
+                  <dd>{extra.bike}</dd>
+                </div>
+                <div class="row">
+                  <dt>Qué necesita la bici {extra.position}</dt>
+                  <dd>{extra.description}</dd>
+                </div>
+              </>
+            ))}
             <div class="row">
               <dt>Comuna / dirección</dt>
               <dd>{booking.comuna ? `${booking.comuna} / ${booking.address ?? ""}` : "—"}</dd>

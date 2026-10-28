@@ -3,8 +3,10 @@ import { type EmailEnv, getEmailEnv, getSiteEnv } from "../../lib/env.ts";
 import { errorMessage, log } from "../../lib/log.ts";
 import { SITE } from "../../lib/site.ts";
 import type { Booking } from "../db/schema.ts";
+import type { BookingBikeLine } from "./templates.ts";
 import {
   type RenderedEmail,
+  escapeHtml,
   bookingRescheduledEmail,
   customerConfirmationEmail,
   shopCancellationEmail,
@@ -84,11 +86,54 @@ async function deliver(
   }
 }
 
+/**
+ * Copia exacta al taller del correo que acaba de recibir el cliente: el mismo cuerpo, con una línea
+ * que dice a quién se le envió. Va como mensaje aparte y no como CC, así el cliente no ve la
+ * dirección del taller y la copia queda con su propio registro en el proveedor.
+ *
+ * Se llama solo después de que el envío al cliente salió bien. Un fallo acá se registra y no cambia
+ * nada más: la operación ya está escrita y su auditoría depende del correo al cliente, no de esta
+ * copia, que tampoco se reintenta.
+ */
+/**
+ * La nota entra justo después de la apertura de `<body>`: `renderHtml` devuelve un documento
+ * completo, así que anteponerla la dejaría antes del doctype, fuera del cuerpo y sin el estilo del
+ * correo. Si algún día el cuerpo no trae `<body>`, se antepone, que es mejor que perderla.
+ */
+function withNote(html: string, note: string): string {
+  const paragraph = `<p style="margin:0 0 12px;line-height:1.55">${escapeHtml(note)}</p>`;
+  const body = /<body[^>]*>/.exec(html);
+  if (!body) return `${paragraph}${html}`;
+  const at = body.index + body[0].length;
+  return `${html.slice(0, at)}${paragraph}${html.slice(at)}`;
+}
+
+export async function sendShopCopy(
+  transport: EmailTransport,
+  env: EmailEnv,
+  customerEmail: string,
+  email: RenderedEmail,
+  orderCode: string,
+): Promise<void> {
+  const note = `Copia del correo enviado a ${customerEmail}.`;
+  try {
+    await transport.send({
+      to: env.SHOP_NOTIFY_EMAIL,
+      subject: `Copia · ${email.subject}`,
+      text: `${note}\n\n${email.text}`,
+      html: withNote(email.html, note),
+    });
+  } catch (error) {
+    log.error("email.shop_copy_failed", { code: orderCode, message: errorMessage(error) });
+  }
+}
+
 /** Post-commit: confirmación al cliente (con .ics y enlace de cancelación) y aviso al taller. */
 export async function notifyBookingCreated(
   booking: Booking,
   cancelToken: string,
   deps: NotifyDeps = {},
+  bikes: BookingBikeLine[] = [],
 ): Promise<void> {
   const env = deps.env ?? getEmailEnv();
   const transport = deps.transport ?? createTransport(env);
@@ -97,7 +142,7 @@ export async function notifyBookingCreated(
   if (booking.email !== null) {
     const confirmation = message(
       booking.email,
-      customerConfirmationEmail(booking, cancelUrlFor(cancelToken, siteUrl)),
+      customerConfirmationEmail(booking, cancelUrlFor(cancelToken, siteUrl), bikes),
     );
     confirmation.attachments = [
       { filename: ICS_FILENAME, content: buildIcs(booking), contentType: "text/calendar" },
@@ -108,7 +153,7 @@ export async function notifyBookingCreated(
     transport,
     "shop_new_booking",
     booking.code,
-    message(env.SHOP_NOTIFY_EMAIL, shopNewBookingEmail(booking)),
+    message(env.SHOP_NOTIFY_EMAIL, shopNewBookingEmail(booking, bikes)),
   );
 }
 
@@ -132,11 +177,12 @@ export async function notifyBookingRescheduled(
   booking: Booking,
   previous: { serviceDate: string; start: string },
   deps: NotifyDeps = {},
+  bikes: BookingBikeLine[] = [],
 ): Promise<void> {
   const env = deps.env ?? getEmailEnv();
   const transport = deps.transport ?? createTransport(env);
   if (booking.email !== null) {
-    const rescheduled = message(booking.email, bookingRescheduledEmail(booking, previous));
+    const rescheduled = message(booking.email, bookingRescheduledEmail(booking, previous, bikes));
     rescheduled.attachments = [
       {
         filename: ICS_FILENAME,
@@ -150,6 +196,6 @@ export async function notifyBookingRescheduled(
     transport,
     "shop_rescheduled",
     booking.code,
-    message(env.SHOP_NOTIFY_EMAIL, shopRescheduledEmail(booking, previous)),
+    message(env.SHOP_NOTIFY_EMAIL, shopRescheduledEmail(booking, previous, bikes)),
   );
 }

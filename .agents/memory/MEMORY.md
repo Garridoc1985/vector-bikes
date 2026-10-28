@@ -1,1 +1,2 @@
 - [Recuperación de envíos externos](external-send-recovery.md) — una respuesta perdida no prueba que Meta rechazó el envío; verificar resultado y fin del proceso antes de reintentar.
+- [Verificación local en Replit](local-verification.md) — PostgreSQL local requiere socket en `/tmp`; la suite Vitest es larga y debe ejecutarse una sola vez en segundo plano.

@@ -7,9 +7,9 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "dev": "node --env-file-if-exists=.env node_modules/astro/bin/astro.mjs dev --host 0.0.0.0 --port 4321",
+    "dev": "astro dev --host 0.0.0.0 --port 5000",
     "build": "astro build",
-    "start": "HOST=0.0.0.0 PORT=4321 node dist/server/entry.mjs",
+    "start": "node dist/server/entry.mjs",
     "format": "biome check --write .",
     "lint": "biome check .",
     "check": "biome ci . && astro check && tsc --noEmit",
@@ -22,7 +22,8 @@
     "db:check": "node --env-file-if-exists=.env scripts/db-check.ts",
     "admin:set-password": "node --env-file-if-exists=.env scripts/admin-set-password.ts",
     "reminders:send": "node --env-file-if-exists=.env scripts/reminders-send.ts",
-    "test:tablet": "playwright test"
+    "test:tablet": "playwright test",
+    "test:public": "playwright test --config playwright.public.config.ts"
   },
   "dependencies": {
     "@astrojs/node": "11.1.5",
@@ -37,6 +38,7 @@
     "drizzle-orm": "0.45.2",
     "ics": "3.12.0",
     "luxon": "3.7.2",
+    "openai": "7.42.0",
     "postgres": "3.4.9",
     "preact": "10.29.8",
     "qrcode": "1.5.4",

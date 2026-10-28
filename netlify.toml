@@ -1,0 +1,13 @@
+[build]
+  base = "."
+  command = "corepack pnpm@12.4.2 exec astro build --config astro.public-test.config.mjs"
+  publish = "dist-public-test"
+
+[build.environment]
+  NODE_VERSION = "24"
+
+# Sitio estático y Function manual: este despliegue no necesita PostgreSQL.
+# Las credenciales del proveedor de IA se configuran en Netlify Functions.
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"

@@ -112,11 +112,9 @@ describe("vista de mes del panel", () => {
   it("describe cada día en su aria-label", async () => {
     const view = await monthOverview(test.db, "2026-09", NOW);
 
-    expect(dayOf(view, "2026-09-16").label).toBe("Miércoles 16 de septiembre, 2 de 4 reservas");
-    expect(dayOf(view, "2026-09-17").label).toBe(
-      "Jueves 17 de septiembre, completo, 4 de 4 reservas",
-    );
-    expect(dayOf(view, "2026-09-21").label).toBe("Lunes 21 de septiembre, libre, 0 de 4 reservas");
+    expect(dayOf(view, "2026-09-16").label).toBe("Miércoles 16 de septiembre, 2 de 4 cupos");
+    expect(dayOf(view, "2026-09-17").label).toBe("Jueves 17 de septiembre, completo, 4 de 4 cupos");
+    expect(dayOf(view, "2026-09-21").label).toBe("Lunes 21 de septiembre, libre, 0 de 4 cupos");
     expect(dayOf(view, "2026-09-22").label).toBe(
       "Martes 22 de septiembre, bloqueado por el taller",
     );
@@ -157,7 +155,7 @@ describe("vista de mes del panel", () => {
     expect(before.match(/<button[^>]*name="fecha"/g)).toHaveLength(30);
     const target = buttonFor(before, "2026-09-17");
     expect(target).toContain('type="submit"');
-    expect(target).toContain('aria-label="Jueves 17 de septiembre, completo, 4 de 4 reservas"');
+    expect(target).toContain('aria-label="Jueves 17 de septiembre, completo, 4 de 4 cupos"');
     expect(buttonFor(before, "2026-09-16")).toContain('aria-current="date"');
     expect(target).not.toContain("aria-current");
 

@@ -1,0 +1,1 @@
+DROP INDEX "idx_work_orders_booking";

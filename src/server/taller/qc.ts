@@ -9,6 +9,7 @@ import { qcChecks, workOrders } from "../db/schema-orders.ts";
 import { auditLog, bikes, customers } from "../db/schema-taller.ts";
 import type { NotifyDeps } from "../email/notifications.ts";
 import { readyForPickupEmail } from "../email/templates.ts";
+import { sendShopCopy } from "../email/notifications.ts";
 import { createTransport } from "../email/transport.ts";
 import { recordAudit } from "./audit.ts";
 import { formatOrderNumber, recordStatusChange } from "./orders.ts";
@@ -130,8 +131,10 @@ async function notifyReadyForPickup(
       orderNumber: formatOrderNumber(order.number),
       bike: `${order.brand} ${order.model}`.trim(),
     });
-    const transport = deps.transport ?? createTransport(deps.env ?? getEmailEnv());
+    const env = deps.env ?? getEmailEnv();
+    const transport = deps.transport ?? createTransport(env);
     await transport.send({ to: order.email, ...email });
+    await sendShopCopy(transport, env, order.email, email, formatOrderNumber(order.number));
     await recordAudit(
       db,
       {

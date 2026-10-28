@@ -1,12 +1,14 @@
 import { asc, eq, gte } from "drizzle-orm";
 import { DateTime } from "luxon";
 import { z } from "zod";
+import type { SessionUser } from "../auth/admin-auth.ts";
 import { cancelBooking } from "../booking/cancel-booking.ts";
 import { missingHolidayYears } from "../booking/holidays.ts";
 import { HORIZON_DAYS, TIMEZONE } from "../booking/rules.ts";
 import { localToday } from "../booking/slots.ts";
 import type { AppDb } from "../db/client.ts";
 import { type BlockedPeriod, type Booking, blockedPeriods, bookings } from "../db/schema.ts";
+import { recordAudit } from "../taller/audit.ts";
 import {
   listNotices,
   sendReadyNotification,
@@ -174,12 +176,52 @@ async function retryReminderNotification(
   return { ok: true, booking };
 }
 
-/** El admin cancela sin correo: el dueño llama al cliente. */
+/**
+ * Cancela desde la agenda y, si hay actor, lo audita en la misma transacción: `cancelBooking`
+ * conserva su firma y Drizzle anida su transacción como savepoint. Sin actor no hay auditoría.
+ */
+async function cancelFromAgenda(
+  db: AppDb,
+  id: string,
+  now: Date,
+  actor?: SessionUser,
+): Promise<AdminActionResult> {
+  const result = await db.transaction(async (tx) => {
+    const cancelled = await cancelBooking(tx, { bookingId: id, by: "admin", now });
+    if (!cancelled.ok || !actor) return cancelled;
+    const { booking } = cancelled;
+    await recordAudit(
+      tx,
+      {
+        branchId: actor.branchId,
+        actorUserId: actor.id,
+        action: "booking.cancelled",
+        entity: "booking",
+        entityId: booking.id,
+        details: {
+          code: booking.code,
+          serviceDate: booking.serviceDate,
+          start: DateTime.fromJSDate(booking.startsAt).setZone(TIMEZONE).toFormat("HH:mm"),
+          mode: booking.mode,
+        },
+      },
+      now,
+    );
+    return cancelled;
+  });
+  if (result.ok) {
+    return result;
+  }
+  return { ok: false, code: result.code === "not_found" ? "not_found" : "invalid_transition" };
+}
+
+/** El admin cancela sin correo: el dueño llama al cliente. `actor` solo sirve para auditar. */
 export async function applyAdminAction(
   db: AppDb,
   id: string,
   action: AdminAction,
   now: Date,
+  actor?: SessionUser,
 ): Promise<AdminActionResult> {
   if (!uuidSchema.safeParse(id).success) {
     return { ok: false, code: "not_found" };
@@ -199,11 +241,7 @@ export async function applyAdminAction(
   if (action === "reintentar_recordatorio_whatsapp") {
     return retryReminderNotification(db, id, now);
   }
-  const result = await cancelBooking(db, { bookingId: id, by: "admin", now });
-  if (result.ok) {
-    return result;
-  }
-  return { ok: false, code: result.code === "not_found" ? "not_found" : "invalid_transition" };
+  return cancelFromAgenda(db, id, now, actor);
 }
 
 export const adminActionSchema = z.enum([

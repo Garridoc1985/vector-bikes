@@ -262,8 +262,9 @@ function roleLabel(value: unknown) {
   /*
    * Tu propia fila no se puede desactivar ni cambiar de rol: el fieldset y el
    * botón van `disabled` y sin esto se ven idénticos a los activos. Duplica la
-   * regla de ordenes/[id]/index.astro porque taller.css está en su tope de
-   * líneas; cuando ese tope se revise, las dos se consolidan ahí. Solo tokens.
+   * regla de ordenes/[id]/index.astro porque taller.css estaba en su tope de
+   * líneas; hoy el área está partida en taller-layout.css y
+   * taller-components.css, y las dos pueden consolidarse en la segunda. Solo tokens.
    */
   .taller :disabled,
   .taller fieldset:disabled {

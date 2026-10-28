@@ -1,5 +1,11 @@
 export type Mode = "taller" | "retiro";
 
+export const BOOKING_AVAILABILITY_DAYS = 14;
+
+export function bookingAvailabilityUrl(today: string, mode: Mode): string {
+  return `/api/disponibilidad?desde=${today}&dias=${BOOKING_AVAILABILITY_DAYS}&modo=${mode}`;
+}
+
 export type ApiDay = {
   date: string;
   status: "open" | "closed" | "holiday" | "full" | "blocked";
@@ -173,11 +179,17 @@ export function bookingReducer(state: State, action: Action): State {
       return { ...state, mode: action.mode, selectedStart: null, errors: {} };
     case "loadStart":
       return { ...state, availability: { status: "loading" } };
-    case "loadSuccess":
+    case "loadSuccess": {
+      const selectedDate = action.days.some((day) => day.date === state.selectedDate)
+        ? state.selectedDate
+        : null;
       return {
         ...state,
         availability: { status: "ready", days: action.days, capacity: action.capacity },
+        selectedDate,
+        selectedStart: selectedDate === null ? null : state.selectedStart,
       };
+    }
     case "loadError":
       return { ...state, availability: { status: "error" } };
     case "selectDate": {

@@ -3,6 +3,7 @@ import { errorMessage, log } from "../../lib/log.ts";
 import { addDays, localToday } from "../booking/slots.ts";
 import type { AppDb } from "../db/client.ts";
 import { bookings } from "../db/schema.ts";
+import { listBookingBikes } from "../booking/booking-bikes.ts";
 import { reminderEmail } from "./templates.ts";
 import { createTransport, type EmailTransport } from "./transport.ts";
 
@@ -38,7 +39,8 @@ export async function sendReminders(
       continue;
     }
     try {
-      await deps.transport.send({ to: booking.email, ...reminderEmail(booking) });
+      const bikes = await listBookingBikes(db, booking.id);
+      await deps.transport.send({ to: booking.email, ...reminderEmail(booking, bikes) });
     } catch (error) {
       failed += 1;
       log.error("email.failed", {

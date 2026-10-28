@@ -126,7 +126,7 @@ describe("aviso al cliente cuando la bici queda lista para retirar", () => {
       status: "lista_para_retirar",
     });
 
-    expect(consoleOutbox).toHaveLength(1);
+    expect(consoleOutbox).toHaveLength(2);
     expect(consoleOutbox[0]?.to).toBe(CUSTOMER_EMAIL);
     expect(consoleOutbox[0]?.subject).toContain("lista para retirar");
     expect(consoleOutbox[0]?.subject).toContain("OT-00001");
@@ -169,7 +169,7 @@ describe("aviso al cliente cuando la bici queda lista para retirar", () => {
 
   it("una segunda aprobación no manda un segundo correo", async () => {
     await submitQc(test.db, owner, orderId, input(), NOW);
-    expect(consoleOutbox).toHaveLength(1);
+    expect(consoleOutbox).toHaveLength(2);
 
     await backToQc();
     expect(await submitQc(test.db, owner, orderId, input(), NOW)).toEqual({
@@ -177,7 +177,7 @@ describe("aviso al cliente cuando la bici queda lista para retirar", () => {
       status: "lista_para_retirar",
     });
 
-    expect(consoleOutbox).toHaveLength(1);
+    expect(consoleOutbox).toHaveLength(2);
     expect(await readyAudits()).toHaveLength(1);
   });
 

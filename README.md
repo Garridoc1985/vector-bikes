@@ -72,7 +72,9 @@ Solo el dueño administra el equipo en `/taller/usuarios`: crea usuarios con nom
 
 ### Reservas
 
-Las reservas próximas están en `/taller/reservas`. Para cambiar el día o la hora de una, pulsa **Reprogramar**: elige el día, revisa los bloques libres y confirma. La reserva mantiene su código y su enlace de cancelación, así que el cliente sigue usando los mismos, y si tiene correo registrado recibe un aviso con el horario anterior, el nuevo y el calendario actualizado. Solo se reprograman reservas confirmadas que todavía no tienen orden de trabajo; si la bici ya se recibió, hay que cancelar y crear otra. Para cambiar la modalidad, la comuna o los datos del cliente también se cancela y se crea otra.
+Las reservas próximas están en `/taller/reservas`. Una reserva puede traer hasta **tres bicicletas**: la cantidad se elige en **Nueva reserva**, antes de ver los bloques libres, y cada bici lleva su marca y lo que necesita. Cada bici ocupa un cupo de los cuatro del día, y en el taller ocupa un bloque, así que tres bicis necesitan tres bloques seguidos; el retiro a domicilio ocupa dos bloques y cobra el recargo una sola vez, sean una o tres. En la lista, cada bici se recibe por separado con **Recibir (1 de 3)**, que precarga la que sigue, y cada una queda con su propia orden, checklist, fotos y firma. Mientras haya una bici recibida, la reserva ya no se puede reprogramar. La reserva por el sitio sigue siendo de una bicicleta.
+
+Para cambiar el día o la hora de una reserva, pulsa **Reprogramar**: elige el día, revisa los bloques libres y confirma. La reserva mantiene su código y su enlace de cancelación, así que el cliente sigue usando los mismos, y si tiene correo registrado recibe un aviso con el horario anterior, el nuevo y el calendario actualizado. Solo se reprograman reservas confirmadas que todavía no tienen orden de trabajo; si la bici ya se recibió, hay que cancelar y crear otra. Para cambiar la modalidad, la comuna o los datos del cliente también se cancela y se crea otra.
 
 ### Recepción en la tablet
 
@@ -80,18 +82,18 @@ La recepción la puede hacer cualquier rol, incluido el mecánico. El mecánico 
 
 1. Abre **Nueva recepción** en `/taller/recepcion/nueva`, o inicia la recepción desde una reserva en `/taller/reservas` para traer sus datos.
 2. Busca al cliente por nombre, teléfono o RUT y usa su ficha y bicicleta. Si es nuevo, registra nombre y teléfono; correo y RUT son opcionales. Para una bicicleta nueva, completa marca, modelo y tipo. Escribe el servicio solicitado y pulsa **Crear orden**.
-3. Completa todos los puntos del **Checklist**, anota observaciones y guarda. Registra los accesorios que quedan con la bici y agrega los servicios del catálogo; el precio corresponde al tipo de bicicleta. El mecánico puede agregar servicios del catálogo, pero no cambiar precios.
+3. Completa todos los puntos del **Checklist**, anota observaciones y guarda. Lo marcado ya no se pierde: cualquier botón de la página guarda primero el checklist, el aviso dice cuántos puntos van de 7 y nombra los que faltan, y cada punto sin guardar aparece como «Pendiente». Registra los accesorios que quedan con la bici y agrega los servicios del catálogo; el precio corresponde al tipo de bicicleta. El mecánico puede agregar servicios del catálogo, pero no cambiar precios.
 4. Revisa la fecha sugerida según la carga del taller y pulsa **Confirmar fecha** con la fecha acordada con el cliente.
-5. Pulsa **Continuar a fotos y firma**. Toma al menos una foto de recepción y espera a que termine de subir. Pide la firma del cliente en la tablet y escribe el nombre de quien firma.
+5. Pulsa **Continuar a fotos y firma**. Puedes **Abrir cámara** y sacar varias fotos seguidas sin salir de la página, o elegirlas de la galería: quedan en una cola de hasta 20 y se mandan todas juntas con **Subir N fotos**. Si una falla, queda en la cola para reintentarla. Toma al menos una foto de recepción y espera a que termine de subir. Pide la firma del cliente en la tablet y escribe el nombre de quien firma.
 6. Pulsa **Finalizar recepción**. Solo se completa con checklist, foto, fecha confirmada y firma; la orden queda **Recibida**. Si faltan datos, la pantalla los indica.
 
-Al finalizar la recepción, el cliente recibe un correo con el resumen si tiene correo registrado.
+Al finalizar la recepción, el cliente recibe un correo con el resumen si tiene correo registrado. El taller recibe una copia de ese correo y del de "Lista para retirar" en `info@vectorbikes.cl`, con el mismo contenido que vio el cliente.
 
 ### Etiqueta y trabajo
 
 Desde el detalle de la orden, abre **Etiqueta** y pulsa **Imprimir**. Selecciona la impresora de etiquetas con papel de **62 mm**, sin márgenes. La etiqueta lleva el número de orden, nombre del cliente, entrega estimada y QR; el QR abre la orden interna y requiere sesión. Haz una impresión de prueba para revisar el tamaño y la lectura antes de usarla en una bici.
 
-En la orden se asigna el mecánico; un mecánico puede **Tomar orden** si está sin asignar y Recibida o en Diagnóstico. Registra el diagnóstico, cambia a los estados disponibles y usa **Galería** para las fotos de reparación y terminado. **Líneas** registra servicios y repuestos; **Componentes** conserva lo instalado y lo reemplazado en el historial de la bicicleta.
+En la orden se asigna el mecánico; un mecánico puede **Tomar orden** si está sin asignar y Recibida o en Diagnóstico. Registra el diagnóstico, cambia a los estados disponibles y usa **Galería** para las fotos de reparación y terminado. **Líneas** registra servicios y repuestos: los precios se editan en la misma tabla y se guardan todos con **Guardar cambios**; cualquier otro botón de la página guarda antes los precios editados, y un precio inválido detiene todo y se marca en su campo. **Componentes** conserva lo instalado y lo reemplazado en el historial de la bicicleta.
 
 ### Trabajos adicionales por WhatsApp
 

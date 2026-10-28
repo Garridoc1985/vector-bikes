@@ -15,6 +15,7 @@ import { can, forbiddenResponse } from "../../../../server/auth/permissions.ts";
 import { TIMEZONE } from "../../../../server/booking/rules.ts";
 import { getDb } from "../../../../server/db/client.ts";
 import { getStorage } from "../../../../server/storage/storage.ts";
+import { listIntakeChecks } from "../../../../server/taller/intake.ts";
 import { formatOrderNumber, getOrderHeader } from "../../../../server/taller/orders.ts";
 import { listOrderPhotos } from "../../../../server/taller/photos.ts";
 import {
@@ -22,7 +23,12 @@ import {
   receptionReadiness,
   receptionSignature,
 } from "../../../../server/taller/reception.ts";
-import { BIKE_TYPE_LABELS, STATUS_LABELS } from "../../../../server/taller/rules.ts";
+import {
+  BIKE_TYPE_LABELS,
+  INTAKE_CHECK_KEYS,
+  INTAKE_CHECK_LABELS,
+  STATUS_LABELS,
+} from "../../../../server/taller/rules.ts";
 import type { BikeType, OrderStatus } from "../../../../server/taller/rules.ts";
 
 export const prerender = false;
@@ -56,8 +62,14 @@ if (
   return forbiddenResponse();
 const number = formatOrderNumber(order.number);
 const receptionUrl = `/taller/ordenes/${order.id}/recepcion`;
+const checks = await listIntakeChecks(db, user, order.id);
+const missingLabels = new Intl.ListFormat("es-CL", { type: "conjunction" }).format(
+  INTAKE_CHECK_KEYS.filter((key) => !checks.some((row) => row.itemKey === key)).map(
+    (key) => INTAKE_CHECK_LABELS[key],
+  ),
+);
 const missingMessages = {
-  checklist: "Falta completar el checklist",
+  checklist: `Falta completar el checklist: ${missingLabels}.`,
   fotos: "Falta al menos una foto de recepción",
   fecha: "Falta confirmar la fecha de entrega",
   firma: "Falta la firma del cliente",
@@ -146,10 +158,10 @@ const receptionDate = receivedAt
         <p>{bike.brand} {bike.model} · {BIKE_TYPE_LABELS[bike.bikeType as BikeType]}</p>
       </Card>
     </div>
-    {errors.length > 0 && <div role="alert"><ul>{errors.map((message) => <li>{message}</li>)}</ul></div>}
+    {errors.length > 0 && <div role="alert"><ul>{errors.map((message) => <li>{message === missingMessages.checklist ? <a class="btn ghost" href={`${receptionUrl}#checklist`}>{message}</a> : message}</li>)}</ul></div>}
     <Card id="readiness-heading" title="Preparación">
       <ul>
-        <li>Checklist: {missing.includes("checklist") ? "Pendiente" : "Completo"}</li>
+        <li>Checklist: {missing.includes("checklist") ? <a class="btn ghost" href={`${receptionUrl}#checklist`}>Faltan: {missingLabels}.</a> : "Completo"}</li>
         <li>Fotos de recepción ({photos.length}): {missing.includes("fotos") ? "Pendientes" : "Completas"}</li>
         <li>Fecha de entrega: {missing.includes("fecha") ? "Pendiente" : `Confirmada: ${order.estimatedDeliveryDate}`}</li>
         <li>Firma del cliente: {missing.includes("firma") ? "Pendiente" : "Registrada"}</li>

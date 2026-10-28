@@ -73,6 +73,7 @@ async function uploadReceptionPhotos(page: Page) {
   const input = page.getByLabel("Tomar foto", { exact: true });
   await expect(input).toBeEnabled();
   await input.setInputFiles(photos);
+  await page.getByRole("button", { name: /^Subir \d+ fotos?$/ }).tap();
   const thumbnails = page.getByRole("img", { name: /^Foto de recepción \d$/ });
   await expect(thumbnails).toHaveCount(4);
   for (let index = 0; index < 4; index++) {

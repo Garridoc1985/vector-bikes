@@ -29,6 +29,7 @@ export const bookings = pgTable(
     code: text("code").notNull(),
     serviceDate: date("service_date", { mode: "string" }).notNull(),
     mode: text("mode").notNull(),
+    bikeCount: integer("bike_count").notNull().default(1),
     status: text("status").notNull().default("confirmed"),
     source: text("source").notNull().default("web"),
     startsAt: instant("starts_at").notNull(),
@@ -61,6 +62,7 @@ export const bookings = pgTable(
     index("idx_bookings_phone_status_starts_at").on(t.phoneE164, t.status, t.startsAt),
     index("idx_bookings_reminder").on(t.serviceDate, t.status, t.reminderSentAt),
     check("bookings_mode_check", sql`mode in ('taller', 'retiro')`),
+    check("bookings_bike_count_check", sql`bike_count between 1 and 3`),
     check("bookings_source_check", sql`source in ('web', 'telefono', 'whatsapp', 'presencial')`),
     check(
       "bookings_status_check",
@@ -236,8 +238,31 @@ export const bookingRequests = pgTable(
   (t) => [index("idx_booking_requests_ip_created").on(t.ipHash, t.createdAt)],
 );
 
+/** Bicicletas 2 y 3 de una reserva; la 1 vive en `bookings.bike` y `bookings.description`. */
+export const bookingBikes = pgTable(
+  "booking_bikes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    bookingId: uuid("booking_id")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "restrict" }),
+    position: integer("position").notNull(),
+    bike: text("bike").notNull(),
+    description: text("description").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("uq_booking_bikes_booking_position").on(t.bookingId, t.position),
+    check("booking_bikes_position_check", sql`position between 2 and 3`),
+  ],
+);
+
+export type BookingBike = typeof bookingBikes.$inferSelect;
+
 export const allTables = [
   bookings,
+  bookingBikes,
   bookingBlocks,
   bookingDays,
   blockedPeriods,

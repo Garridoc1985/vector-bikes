@@ -32,10 +32,12 @@ Astro.response.headers.set("cache-control", "no-store");
 const selectionSchema = z.strictObject({
   service_date: z.iso.date("Elige una fecha válida."),
   mode: z.enum(["taller", "retiro"], "Elige taller o retiro."),
+  bicis: manualBookingSchema.shape.bicis,
 });
 let values: Record<string, string> = {
   service_date: Astro.url.searchParams.get("service_date") ?? localToday(now),
   mode: Astro.url.searchParams.get("mode") ?? "taller",
+  bicis: Astro.url.searchParams.get("bicis") ?? "1",
   source: "telefono",
 };
 const fieldErrors: Record<string, string> = {};
@@ -66,31 +68,40 @@ if (isPost) {
       });
     if (result.code === "forbidden") return forbiddenResponse();
     Astro.response.status = result.code === "validation_error" ? 422 : 409;
-    error =
-      result.code === "phone_limit"
-        ? "Ya existe una reserva próxima con este teléfono. Revisa la agenda antes de crear otra."
-        : result.code === "slot_unavailable"
-          ? "El bloque ya no está disponible. Elige otro bloque o día."
-          : "Revisa los datos de la reserva.";
-    if (result.code === "phone_limit") fieldErrors.telefono = error;
-    if (result.code === "slot_unavailable") fieldErrors.start = error;
+    // El detalle va solo en su campo; arriba queda el aviso general, igual que en Reprogramar.
+    error = "Revisa los datos de la reserva.";
+    if (result.code === "phone_limit")
+      fieldErrors.telefono =
+        "Ya existe una reserva próxima con este teléfono. Revisa la agenda antes de crear otra.";
+    if (result.code === "slot_unavailable")
+      fieldErrors.start = "El bloque ya no está disponible. Elige otro bloque o día.";
   }
 }
 const selected = selectionSchema.safeParse({
   service_date: values.service_date,
   mode: values.mode,
+  bicis: values.bicis,
 });
 const requested =
-  isPost || Astro.url.searchParams.has("service_date") || Astro.url.searchParams.has("mode");
+  isPost || ["service_date", "mode", "bicis"].some((key) => Astro.url.searchParams.has(key));
 if (requested && !selected.success) {
   Astro.response.status = 422;
-  error = "Revisa la fecha y la modalidad.";
+  error = "Revisa la fecha, la modalidad y la cantidad de bicicletas.";
   for (const issue of selected.error.issues) fieldErrors[String(issue.path[0])] ??= issue.message;
 }
 const blocks =
   requested && selected.success
-    ? await freeBlocks(db, selected.data.service_date, selected.data.mode, now)
+    ? await freeBlocks(db, selected.data.service_date, selected.data.mode, now, selected.data.bicis)
     : [];
+// Con una sola bici los rótulos quedan como siempre; con dos o tres, la primera también se numera.
+const several = selected.success && selected.data.bicis > 1;
+const extraBikes = [2, 3]
+  .filter((index) => selected.success && index <= selected.data.bicis)
+  .map((index) => ({
+    index,
+    bikeField: `bicicleta_${index}`,
+    descriptionField: `descripcion_${index}`,
+  }));
 const fields: {
   key: string;
   label: string;
@@ -155,16 +166,24 @@ const fields: {
           </select>
           {fieldErrors.mode && <p id="mode-error">{fieldErrors.mode}</p>}
         </div>
+        <div class="field">
+          <label for="bicis">Cantidad de bicicletas</label>
+          <select id="bicis" name="bicis" required aria-invalid={Boolean(fieldErrors.bicis)} aria-describedby={fieldErrors.bicis ? "bicis-error" : undefined}>
+            {[1, 2, 3].map((count) => <option value={String(count)} selected={(values.bicis ?? "1") === String(count)}>{count}</option>)}
+          </select>
+          {fieldErrors.bicis && <p id="bicis-error">{fieldErrors.bicis}</p>}
+        </div>
       </div>
       <button type="submit" class="btn ghost">Ver bloques libres</button>
     </form></Card>
     {requested && selected.success && (
       <>
         <p class="mono">Día {values.service_date} · {values.mode === "retiro" ? "Retiro a domicilio · $15.000" : "Entrega en taller"}</p>
-        {blocks.length === 0 && <p role="status" class="muted">No hay bloques libres para este día y modalidad. Elige otro día.</p>}
+        {blocks.length === 0 && <p role="status" class="muted">{selected.data.bicis === 1 ? "No hay bloques libres para este día y modalidad. Elige otro día." : `No hay cupo para ${selected.data.bicis} bicicletas este día.`}</p>}
         <Card><form method="post" action={PATH}>
           <input type="hidden" name="service_date" value={values.service_date} />
           <input type="hidden" name="mode" value={values.mode} />
+          <input type="hidden" name="bicis" value={selected.data.bicis} />
           <div class="fields">
             <div class="field">
               <label for="start">Bloque disponible</label>
@@ -176,16 +195,30 @@ const fields: {
             </div>
             {fields.map((field) => (
               <div class="field">
-                <label for={field.key}>{field.label}</label>
+                <label for={field.key}>{several && field.key === "bicicleta" ? "Bicicleta 1" : field.label}</label>
                 <input id={field.key} name={field.key} type={field.type} required={field.required} maxlength={field.maxlength} autocomplete={field.autocomplete} value={values[field.key] ?? ""} aria-invalid={Boolean(fieldErrors[field.key])} aria-describedby={fieldErrors[field.key] ? `${field.key}-error` : undefined} />
                 {fieldErrors[field.key] && <p id={`${field.key}-error`}>{fieldErrors[field.key]}</p>}
               </div>
             ))}
             <div class="field">
-              <label for="descripcion">Qué necesita la bicicleta</label>
+              <label for="descripcion">{several ? "Qué necesita la bici 1" : "Qué necesita la bicicleta"}</label>
               <textarea id="descripcion" name="descripcion" required minlength="5" maxlength="1000" rows="3" aria-invalid={Boolean(fieldErrors.descripcion)} aria-describedby={fieldErrors.descripcion ? "descripcion-error" : undefined}>{values.descripcion ?? ""}</textarea>
               {fieldErrors.descripcion && <p id="descripcion-error">{fieldErrors.descripcion}</p>}
             </div>
+            {extraBikes.map(({ index, bikeField, descriptionField }) => (
+                <>
+                  <div class="field">
+                    <label for={bikeField}>Bicicleta {index}</label>
+                    <input id={bikeField} name={bikeField} type="text" required minlength="2" maxlength="120" autocomplete="off" value={values[bikeField] ?? ""} aria-invalid={Boolean(fieldErrors[bikeField])} aria-describedby={fieldErrors[bikeField] ? `${bikeField}-error` : undefined} />
+                    {fieldErrors[bikeField] && <p id={`${bikeField}-error`}>{fieldErrors[bikeField]}</p>}
+                  </div>
+                  <div class="field">
+                    <label for={descriptionField}>Qué necesita la bici {index}</label>
+                    <textarea id={descriptionField} name={descriptionField} required minlength="5" maxlength="1000" rows="3" aria-invalid={Boolean(fieldErrors[descriptionField])} aria-describedby={fieldErrors[descriptionField] ? `${descriptionField}-error` : undefined}>{values[descriptionField] ?? ""}</textarea>
+                    {fieldErrors[descriptionField] && <p id={`${descriptionField}-error`}>{fieldErrors[descriptionField]}</p>}
+                  </div>
+                </>
+            ))}
             {values.mode === "retiro" && (
               <>
                 <div class="field">

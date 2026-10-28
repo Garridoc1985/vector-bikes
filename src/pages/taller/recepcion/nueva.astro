@@ -45,6 +45,9 @@ if (Astro.request.method === "POST") {
   if (!can(user.role, "reception.perform")) return forbiddenResponse();
   const form = await Astro.request.formData();
   submitted = Object.fromEntries([...form].map(([key, value]) => [key, String(value)]));
+  // Elegir la bici es explícito: `nueva` crea una, un id usa esa, y vacío es "todavía nadie eligió".
+  const chosenBike = submitted.bikeId && submitted.bikeId !== "nueva" ? submitted.bikeId : null;
+  const missingBikeChoice = submitted.bikesOffered === "1" && !submitted.bikeId;
   const parsed = startReceptionSchema.safeParse({
     bookingId: submitted.bookingId || null,
     customerId: submitted.customerId || null,
@@ -56,8 +59,8 @@ if (Astro.request.method === "POST") {
           email: submitted.email,
           rut: submitted.rut,
         },
-    bikeId: submitted.bikeId || null,
-    bike: submitted.bikeId
+    bikeId: chosenBike,
+    bike: chosenBike
       ? undefined
       : {
           brand: submitted.brand,
@@ -66,11 +69,13 @@ if (Astro.request.method === "POST") {
         },
     requestedService: submitted.requestedService,
   });
-  if (!parsed.success) {
+  if (!parsed.success || missingBikeChoice) {
     Astro.response.status = 422;
     error = "Revisa los datos para iniciar la recepción.";
-    for (const issue of parsed.error.issues)
-      fieldErrors[String(issue.path.at(-1) ?? "formulario")] ??= issue.message;
+    if (missingBikeChoice) fieldErrors.bikeId = "Elige la bicicleta o marca «Bicicleta nueva».";
+    if (!parsed.success)
+      for (const issue of parsed.error.issues)
+        fieldErrors[String(issue.path.at(-1) ?? "formulario")] ??= issue.message;
   } else {
     const result = await startReception(db, user, parsed.data, now);
     if (result.ok)
@@ -139,7 +144,7 @@ const values: Record<string, string> = {
   brand: bookingData?.prefill.brand ?? "",
   model: bookingData?.prefill.model ?? "",
   requestedService: bookingData?.prefill.requestedService ?? "",
-  bikeId: bikes[0]?.id ?? "",
+  bikeId: "",
   ...submitted,
 };
 const q = Astro.url.searchParams.get("q") ?? "";
@@ -239,11 +244,12 @@ const bikeFields = [
         {bikes.length > 0 && (
           <fieldset>
             <legend>Bicicleta</legend>
+            <input type="hidden" name="bikesOffered" value="1" />
             <div class="options">
               {bikes.map((bike) => (
                 <label><input type="radio" name="bikeId" value={bike.id} checked={values.bikeId === bike.id} aria-invalid={Boolean(fieldErrors.bikeId)} aria-describedby={fieldErrors.bikeId ? "bikeId-error" : undefined} />{bike.brand} {bike.model} · {BIKE_TYPE_LABELS[bike.bikeType as keyof typeof BIKE_TYPE_LABELS]}</label>
               ))}
-              <label><input type="radio" name="bikeId" value="" checked={!values.bikeId} aria-invalid={Boolean(fieldErrors.bikeId)} aria-describedby={fieldErrors.bikeId ? "bikeId-error" : undefined} />Bicicleta nueva</label>
+              <label><input type="radio" name="bikeId" value="nueva" checked={values.bikeId === "nueva"} aria-invalid={Boolean(fieldErrors.bikeId)} aria-describedby={fieldErrors.bikeId ? "bikeId-error" : undefined} />Bicicleta nueva</label>
             </div>
             {fieldErrors.bikeId && <p id="bikeId-error">{fieldErrors.bikeId}</p>}
           </fieldset>

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type ApiDay,
   type State,
+  bookingAvailabilityUrl,
   bookingReducer,
   firstErrorTarget,
   formErrorsFrom,
@@ -37,6 +38,15 @@ function ready(days: ApiDay[]): State {
 }
 
 describe("bookingReducer", () => {
+  it("solicita al selector el horizonte completo de 14 días anunciado", () => {
+    expect(bookingAvailabilityUrl("2026-09-16", "taller")).toBe(
+      "/api/disponibilidad?desde=2026-09-16&dias=14&modo=taller",
+    );
+    expect(bookingAvailabilityUrl("2026-09-16", "retiro")).toBe(
+      "/api/disponibilidad?desde=2026-09-16&dias=14&modo=retiro",
+    );
+  });
+
   it("limpia el bloque al cambiar de modalidad", () => {
     const state: State = {
       ...ready([day("2026-09-16")]),
@@ -47,6 +57,37 @@ describe("bookingReducer", () => {
       mode: "retiro",
       selectedStart: null,
     });
+  });
+
+  it("limpia la fecha y el bloque vencidos cuando avanza el horizonte", () => {
+    const state: State = {
+      ...ready([day("2026-10-28"), day("2026-10-29")]),
+      selectedDate: "2026-10-28",
+      selectedStart: "16:00",
+    };
+    const next = bookingReducer(state, {
+      type: "loadSuccess",
+      days: [day("2026-10-29"), day("2026-10-30")],
+      capacity: 4,
+    });
+    expect(next.selectedDate).toBeNull();
+    expect(next.selectedStart).toBeNull();
+    expect(validateForm(next).bloque).toBe("Elige un bloque libre para continuar.");
+  });
+
+  it("conserva una selección que sigue dentro del horizonte renovado", () => {
+    const state: State = {
+      ...ready([day("2026-10-28"), day("2026-10-29")]),
+      selectedDate: "2026-10-29",
+      selectedStart: "16:00",
+    };
+    expect(
+      bookingReducer(state, {
+        type: "loadSuccess",
+        days: [day("2026-10-29"), day("2026-10-30")],
+        capacity: 4,
+      }),
+    ).toMatchObject({ selectedDate: "2026-10-29", selectedStart: "16:00" });
   });
 
   it("ignora un día que no está abierto", () => {
