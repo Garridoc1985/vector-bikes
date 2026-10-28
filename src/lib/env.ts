@@ -2,6 +2,15 @@ import { z } from "zod";
 
 type EnvSource = Record<string, string | undefined>;
 
+/** El asistente se activa solo con proveedor y modelo configurados en Netlify. */
+export function getAssistantEnv(source: EnvSource = process.env) {
+  return {
+    enabled: source.AI_ASSISTANT_ENABLED === "true",
+    model: source.AI_MODEL?.trim(),
+    configured: Boolean(source.OPENAI_API_KEY && source.OPENAI_BASE_URL),
+  };
+}
+
 export class EnvError extends Error {
   readonly variables: string[];
 
