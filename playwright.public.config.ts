@@ -1,6 +1,7 @@
 import { defineConfig } from "@playwright/test";
 import {
   E2E_BASE_URL,
+  E2E_CANCEL_TOKEN_SECRET,
   E2E_DATABASE_URL,
   E2E_PORT,
   E2E_STORAGE_DIR,
@@ -10,7 +11,7 @@ import {
 export default defineConfig({
   testDir: "./e2e",
   testMatch: "**/public-*.spec.ts",
-  globalSetup: "./e2e/global-setup.ts",
+  globalSetup: "./e2e/public-global-setup.ts",
   fullyParallel: false,
   workers: 1,
   retries: 0,
@@ -55,7 +56,7 @@ export default defineConfig({
       DATABASE_URL: E2E_DATABASE_URL,
       PUBLIC_SITE_URL: E2E_BASE_URL,
       SESSION_SECRET: "e2e-session-secret-0123456789abcdef012",
-      CANCEL_TOKEN_SECRET: "e2e-cancel-secret-0123456789abcdef0123",
+      CANCEL_TOKEN_SECRET: E2E_CANCEL_TOKEN_SECRET,
       TURNSTILE_SECRET_KEY: "e2e-turnstile-secret",
       TASKS_SECRET: E2E_TASKS_SECRET,
       EMAIL_TRANSPORT: "console",

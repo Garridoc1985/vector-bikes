@@ -20,7 +20,16 @@ const evidenceDir = resolve("generated-artifacts/playwright-evidence");
 
 function requestUrl(request: Request): string {
   const url = new URL(request.url());
-  return `${url.origin}${url.pathname}`;
+  const path = url.pathname.replace(/^\/(aprobacion|informe)\/[^/]+$/, "/$1/[redacted]");
+  return redactSensitive(`${url.origin}${path}`);
+}
+
+function redactSensitive(value: string): string {
+  return value
+    .replace(/(\/(?:aprobacion|informe)\/)[A-Za-z0-9_-]{32,128}(?=[/?#\s]|$)/g, "$1[redacted]")
+    .replace(/([?&]token=)[^&#\s]+/gi, "$1[redacted]")
+    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, "[email redacted]")
+    .replace(/\+?56\s?9[0-9\s-]{8,}/g, "[phone redacted]");
 }
 
 test.beforeEach(async ({ page }) => {
@@ -50,6 +59,9 @@ test.beforeEach(async ({ page }) => {
       remove: () => undefined,
     };
   });
+  await page.route("https://challenges.cloudflare.com/**", (route) =>
+    route.fulfill({ status: 200, contentType: "application/javascript", body: "" }),
+  );
 
   page.on("console", (message) => {
     if (message.type() === "error") observed.consoleErrors.push(message.text());
@@ -73,7 +85,15 @@ test.beforeEach(async ({ page }) => {
 test.afterEach(async ({ page }, testInfo) => {
   const observed = diagnostics.get(page);
   if (!observed) return;
-  const report = JSON.stringify(observed, null, 2);
+  const report = JSON.stringify(
+    {
+      ...observed,
+      consoleErrors: observed.consoleErrors.map(redactSensitive),
+      pageErrors: observed.pageErrors.map(redactSensitive),
+    },
+    null,
+    2,
+  );
   await testInfo.attach("browser-console-and-network.json", {
     body: Buffer.from(report),
     contentType: "application/json",
@@ -97,11 +117,11 @@ test("la landing permite llegar a reservas y contactos públicos", async ({ page
   const workshopNav = page.getByRole("link", { name: "Taller", exact: true });
   if (await workshopNav.isVisible()) {
     await workshopNav.click();
+    await expect(page).toHaveURL(/#taller$/);
   } else {
     await page.locator("#taller").scrollIntoViewIfNeeded();
   }
   await expect(page.locator("#taller")).toBeInViewport();
-  await expect(page).toHaveURL(/#taller$/);
   await expect(page.getByText("Avenida Kennedy 7666", { exact: false })).toBeVisible();
   await expect(page.getByRole("table")).toContainText("Lunes a viernes");
   await expect(page.getByRole("table")).toContainText("15:00 – 20:00");
@@ -118,7 +138,7 @@ test("la landing permite llegar a reservas y contactos públicos", async ({ page
   const pickup = page.locator("#retiro");
   await expect(pickup).toContainText("Vitacura y Las Condes");
   await expect(pickup).toContainText("$15.000");
-  await expect(pickup).toContainText("1 hora (2 bloques)");
+  await expect(pickup).toContainText("Ocupa 1 hora de agenda (2 bloques)");
   await expect(pickup).toContainText("Al devolverla");
 
   const bookingResponse = page.waitForResponse((response) => {
@@ -133,7 +153,7 @@ test("la landing permite llegar a reservas y contactos públicos", async ({ page
   await expect(page.getByRole("button", { name: "La dejo en el taller" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Retiro y devolución" }).first()).toBeVisible();
   await expect(
-    page.getByText("desde las 09:00 de lunes a viernes", { exact: false }),
+    page.getByText("retiro a domicilio parte a las 09:00 de lunes a viernes", { exact: false }),
   ).toBeVisible();
 
   const currentUrl = new URL(page.url());
@@ -223,5 +243,97 @@ test("el selector completa una reserva de retiro y valida el formulario", async 
   expect(result.fee).toBe(15000);
   await page.locator(".done").screenshot({
     path: resolve(evidenceDir, `reserva-confirmada-${testInfo.project.name}.png`),
+    mask: [page.locator(".done p")],
+    maskColor: "#fff",
+  });
+});
+
+test("selecciona y confirma un día posterior al 14 y respeta el máximo de 31", async ({
+  page,
+}, testInfo) => {
+  mkdirSync(evidenceDir, { recursive: true });
+  await page.goto("/");
+  const firstAvailability = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/disponibilidad" && response.status() === 200,
+  );
+  await page.locator(".hero").getByRole("link", { name: "Reservar hora" }).click();
+  const availabilityResponse = await firstAvailability;
+  const availability = (await availabilityResponse.json()) as {
+    days: Array<{
+      date: string;
+      status: string;
+      blocks: Array<{ start: string; state: string }>;
+    }>;
+  };
+  expect(availability.days).toHaveLength(30);
+
+  const from = new URL(availabilityResponse.url()).searchParams.get("desde");
+  if (!from) throw new Error("La disponibilidad no indicó la fecha inicial.");
+  const limits = await Promise.all(
+    [31, 32].map(async (days) => {
+      const url = new URL("/api/disponibilidad", page.url());
+      url.searchParams.set("desde", from);
+      url.searchParams.set("dias", String(days));
+      url.searchParams.set("modo", "taller");
+      const response = await page.request.get(url.toString());
+      const body = response.ok() ? await response.json() : null;
+      return { status: response.status(), count: body?.days?.length ?? null };
+    }),
+  );
+  expect(limits).toEqual([
+    { status: 200, count: 31 },
+    { status: 422, count: null },
+  ]);
+
+  const laterDay = availability.days.slice(14).find((day) => day.status === "open");
+  expect(laterDay).toBeDefined();
+  if (!laterDay) throw new Error("No hay un día abierto posterior al día 14 en la base E2E.");
+
+  const dayButton = page.locator(`button.day[data-date="${laterDay.date}"]`);
+  await expect(dayButton).toBeVisible();
+  await dayButton.click();
+  await expect(dayButton).toHaveAttribute("aria-pressed", "true");
+
+  const firstFreeBlock = laterDay.blocks.find((block) => block.state === "free");
+  expect(firstFreeBlock).toBeDefined();
+  if (!firstFreeBlock) throw new Error("El día posterior al 14 no tiene bloques libres.");
+  const slot = page.getByRole("button", { name: firstFreeBlock.start, exact: true });
+  await expect(slot).toBeVisible();
+  await slot.click();
+  await expect(slot).toHaveAttribute("aria-pressed", "true");
+
+  await page.locator('input[name="nombre"]').fill("Reserva E2E día 15 a 30");
+  await page
+    .locator('input[name="telefono"]')
+    .fill(testInfo.project.name === "desktop" ? "55550301" : "55550302");
+  await page
+    .locator('input[name="correo"]')
+    .fill(`rango-${testInfo.project.name}@e2e.vectorbikes.cl`);
+  await page.locator('input[name="bicicleta"]').fill("Specialized Rockhopper, MTB");
+  await page.locator('textarea[name="descripcion"]').fill("Revisión general de prueba sintética");
+  await page.locator("#f-ok").check();
+
+  const created = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === "/api/reservas" && response.status() === 201,
+  );
+  await page.getByRole("button", { name: "Confirmar reserva" }).click();
+  const createdResponse = await created;
+  const requestBody = JSON.parse(createdResponse.request().postData() ?? "{}") as {
+    service_date?: string;
+    mode?: string;
+  };
+  expect(requestBody.service_date).toBe(laterDay.date);
+  expect(requestBody.mode).toBe("taller");
+
+  const result = await createdResponse.json();
+  await expect(page.getByText("Reserva confirmada", { exact: true })).toBeVisible();
+  await expect(page.locator(".done")).toContainText(result.code);
+  expect(result.mode).toBe("taller");
+  expect(result.fee).toBe(0);
+  await page.locator(".done").screenshot({
+    path: resolve(evidenceDir, `reserva-dia-15-a-30-${testInfo.project.name}.png`),
+    mask: [page.locator(".done p")],
+    maskColor: "#fff",
   });
 });

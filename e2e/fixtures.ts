@@ -13,6 +13,13 @@ export const E2E_BASE_URL = `http://127.0.0.1:${E2E_PORT}`;
 export const E2E_DATABASE_URL = process.env.E2E_DATABASE_URL || DEFAULT_E2E_DATABASE_URL;
 export const E2E_STORAGE_DIR = ".storage-e2e";
 export const E2E_TASKS_SECRET = "e2e-tasks-secret-0123456789abcdef0123";
+export const E2E_CANCEL_TOKEN_SECRET = "e2e-cancel-secret-0123456789abcdef0123";
+export const PUBLIC_TEST_TOKENS = {
+  cancelDesktop: `cancel-e2e-desktop-${"c".repeat(24)}`,
+  cancelMobile: `cancel-e2e-mobile-${"d".repeat(24)}`,
+  approval: "a".repeat(43),
+  report: "b".repeat(43),
+} as const;
 
 /** Ids fijos de las filas que siembra `global-setup.ts`; los specs navegan con ellos. */
 export const SEED = {

@@ -663,6 +663,9 @@ p {
   gap: 6px;
   align-content: start;
 }
+.field[hidden] {
+  display: none;
+}
 .field label {
   min-height: 1.3em;
 }

@@ -77,6 +77,7 @@ function DayChips({
           key={day.date}
           type="button"
           class="day"
+          data-date={day.date}
           disabled={day.status !== "open"}
           aria-pressed={day.date === selectedDate}
           onClick={() => onPick(day.date)}
