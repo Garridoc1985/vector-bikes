@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { z } from "zod";
 import { getAssistantEnv } from "../lib/env.ts";
+import { log } from "../lib/log.ts";
 import { KNOWLEDGE_VERSION, PUBLIC_KNOWLEDGE } from "../lib/public-knowledge.ts";
 
 const questionSchema = z.object({ question: z.string().trim().min(1).max(800) }).strict();
@@ -121,7 +122,13 @@ async function streamAnswer(request: Request, question: string, model: string) {
         "X-Knowledge-Version": KNOWLEDGE_VERSION,
       },
     });
-  } catch {
+  } catch (error) {
+    const status =
+      typeof error === "object" && error !== null && "status" in error ? error.status : undefined;
+    log.error("assistant.provider_unavailable", {
+      providerStatus: typeof status === "number" && Number.isInteger(status) ? status : null,
+      reason: abort.signal.aborted ? "aborted" : "request_failed",
+    });
     abort.abort();
     cleanup();
     return problem(

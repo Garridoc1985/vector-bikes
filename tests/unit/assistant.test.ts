@@ -66,10 +66,25 @@ describe("asistente público", () => {
     expect(instructions).toContain(KNOWLEDGE_VERSION);
   });
   it("informa fallos del proveedor sin filtrar detalles", async () => {
-    create.mockRejectedValue(new Error("secret-provider-diagnostic"));
-    const response = await assistantResponse(request());
-    expect(response.status).toBe(502);
-    expect(await response.text()).not.toContain("secret-provider-diagnostic");
+    const diagnostic = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      create.mockRejectedValue(
+        Object.assign(new Error("secret-provider-diagnostic"), { status: 401 }),
+      );
+      const response = await assistantResponse(request());
+      expect(response.status).toBe(502);
+      expect(await response.text()).not.toContain("secret-provider-diagnostic");
+      expect(diagnostic).toHaveBeenCalledOnce();
+      const line = diagnostic.mock.calls[0]?.[0];
+      expect(JSON.parse(line)).toMatchObject({
+        event: "assistant.provider_unavailable",
+        providerStatus: 401,
+        reason: "request_failed",
+      });
+      expect(line).not.toContain("secret-provider-diagnostic");
+    } finally {
+      diagnostic.mockRestore();
+    }
   });
   it("no presenta un stream incompleto como finalizado", async () => {
     create.mockResolvedValue(events("response.incomplete"));
