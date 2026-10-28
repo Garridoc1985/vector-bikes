@@ -25,19 +25,69 @@ function DateButton({
   return (
     <button
       type="button"
-      class="public-date-day"
+      class="day"
       data-date={date}
       aria-label={label}
       aria-pressed={selected}
       disabled={status.closed}
       onClick={() => onSelect(date)}
     >
-      <span class="public-date-day__weekday">{dateLabel(date, { weekday: "short" })}</span>
-      <time dateTime={date}>{dateLabel(date, { day: "numeric", month: "short" })}</time>
-      <span class="public-date-day__state">
-        {status.closed ? status.label : selected ? "Elegida" : date === today ? "Hoy" : ""}
+      <span class="dw">{dateLabel(date, { weekday: "short" })}</span>
+      <time class="dn" dateTime={date}>
+        {date === today ? "Hoy" : dateLabel(date, { day: "2-digit", month: "short" })}
+      </time>
+      <span class="dc">
+        {status.label.includes("Feriado") ? "Feriado" : status.closed ? "Cerrado" : ""}
       </span>
     </button>
+  );
+}
+
+function ClosureReferences({ dates }: { dates: string[] }) {
+  const closed = dates.filter((date) => bookingDateStatus(date).closed);
+  if (closed.length === 0) return null;
+  return (
+    <ul class="public-date-selector__closures" aria-label="Referencias de cierres">
+      {closed.map((date) => (
+        <li key={date}>
+          <time dateTime={date}>{dateLabel(date, { day: "2-digit", month: "short" })}</time>
+          {": "}
+          {bookingDateStatus(date).label}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+type DateSelection = {
+  today: string;
+  dates: string[];
+  selected: string;
+  onSelect: (date: string) => void;
+};
+
+function DateFieldset({ today, dates, selected, onSelect }: DateSelection) {
+  return (
+    <fieldset aria-busy={!today} aria-describedby="public-date-note">
+      <legend>Día</legend>
+      <p class="public-date-selector__range">14 días corridos desde hoy · hora de Chile</p>
+      <p id="public-date-note" class="public-date-selector__note">
+        Seleccionar una fecha no crea una reserva ni confirma disponibilidad.
+      </p>
+      <p class="ruler-note">Desliza la banda para ver todas las fechas.</p>
+      <section class="days public-date-selector__strip" aria-label="Fechas de reserva o retiro">
+        {dates.map((date) => (
+          <DateButton
+            key={date}
+            date={date}
+            today={today}
+            selected={date === selected}
+            onSelect={onSelect}
+          />
+        ))}
+      </section>
+      <ClosureReferences dates={dates} />
+    </fieldset>
   );
 }
 
@@ -53,25 +103,8 @@ export default function PublicDateSelector() {
   }, [selectedDate, selected]);
 
   return (
-    <div class="public-date-selector" data-testid="public-date-selector">
-      <fieldset aria-busy={!today} aria-describedby="public-date-note">
-        <legend>Selecciona una fecha para probar</legend>
-        <p class="public-date-selector__range">14 días corridos desde hoy · hora de Chile</p>
-        <p id="public-date-note" class="public-date-selector__note">
-          Seleccionar una fecha no crea una reserva ni confirma disponibilidad.
-        </p>
-        <div class="public-date-selector__grid">
-          {dates.map((date) => (
-            <DateButton
-              key={date}
-              date={date}
-              today={today}
-              selected={date === selected}
-              onSelect={setSelectedDate}
-            />
-          ))}
-        </div>
-      </fieldset>
+    <div class="public-date-selector stage" data-testid="public-date-selector">
+      <DateFieldset today={today} dates={dates} selected={selected} onSelect={setSelectedDate} />
       <p
         class="public-date-selector__selection"
         role="status"

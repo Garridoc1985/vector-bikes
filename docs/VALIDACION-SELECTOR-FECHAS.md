@@ -6,6 +6,8 @@ El responsable corrigió el rango a **14 días corridos**, incluido hoy y los 13
 
 Sábados, domingos y feriados permanecen dentro de las 14 fechas. Los domingos se muestran cerrados; los feriados indican su nombre y están deshabilitados. Un sábado que no es feriado puede elegirse para la prueba. Esta selección no crea una reserva ni confirma cupos reales.
 
+Las fechas se presentan en una sola banda horizontal deslizable, tanto en escritorio como en móvil, reutilizando las fichas `.days`/`.day` del selector original. Las etiquetas son «Día», «Hoy», «Cerrado» y «Feriado»; los motivos completos de cierre figuran debajo de la banda. No se simulan contadores de cupos.
+
 El rango elimina fechas vencidas y agrega las nuevas automáticamente, sin recarga manual ni despliegue diario. Se comprueba cada 30 segundos y al recuperar foco o visibilidad de la pestaña. Si la fecha seleccionada vence o deja de ser válida, la selección se limpia. Una fecha futura que sigue válida se conserva.
 
 ## Implementación

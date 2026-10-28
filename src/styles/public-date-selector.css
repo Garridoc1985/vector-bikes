@@ -1,18 +1,7 @@
 .public-date-selector {
   max-width: 900px;
-}
-
-.public-date-selector fieldset {
   min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.public-date-selector legend {
-  padding: 0;
-  font-size: 1rem;
-  font-weight: 600;
+  gap: 0;
 }
 
 .public-date-selector__range {
@@ -26,84 +15,29 @@
   font-size: 0.9rem;
 }
 
-.public-date-selector__grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 20px;
+.public-date-selector__strip {
+  flex-wrap: nowrap;
+  margin-top: 14px;
+  overscroll-behavior-inline: contain;
 }
 
-.public-date-day {
-  display: grid;
-  gap: 2px;
-  min-height: 112px;
-  padding: 10px 12px;
-  border: 1px solid var(--field-border);
-  border-radius: 2px;
-  background: var(--surface);
-  text-align: left;
-  cursor: pointer;
-  transition:
-    background-color var(--dur) var(--ease),
-    color var(--dur) var(--ease),
-    border-color var(--dur) var(--ease);
+.public-date-selector__strip .day {
+  width: 84px;
 }
 
-.public-date-day__weekday,
-.public-date-day__state {
+.public-date-selector__strip .dc {
+  min-height: 1.55em;
+}
+
+.public-date-selector__closures {
+  margin: 12px 0 0;
+  padding-left: 20px;
   color: var(--steel);
-  font-family: var(--mono);
-  font-size: 0.72rem;
-}
-
-.public-date-day__weekday {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.public-date-day time {
-  font-size: 1.05rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.public-date-day__state {
-  min-height: 1.2em;
-  overflow-wrap: anywhere;
-}
-
-.public-date-day:disabled {
-  cursor: not-allowed;
-  background: repeating-linear-gradient(-45deg, var(--hatch) 0 2px, var(--surface) 2px 7px);
-  color: var(--steel);
-}
-
-.public-date-day[aria-pressed="true"] {
-  border-color: var(--ink);
-  background: var(--ink);
-  color: var(--on-ink);
-}
-
-.public-date-day[aria-pressed="true"] .public-date-day__weekday,
-.public-date-day[aria-pressed="true"] .public-date-day__state {
-  color: var(--on-ink);
-}
-
-@media (hover: hover) {
-  .public-date-day:hover:not(:disabled):not([aria-pressed="true"]) {
-    border-color: var(--ink);
-    background: var(--ground);
-  }
+  font-size: 0.8rem;
 }
 
 .public-date-selector__selection {
   min-height: 3.1em;
   margin-top: 16px;
   color: var(--ink-2);
-}
-
-@media (max-width: 600px) {
-  .public-date-selector__grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }

@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 const selectorId = "public-date-selector";
 
-test("muestra 14 fechas corridas de Chile en un dispositivo de otra zona", async ({ page }) => {
+test("muestra 14 fechas en una banda horizontal deslizable", async ({ page }) => {
   await page.clock.install({ time: new Date("2026-10-28T02:59:50Z") });
   await page.goto("/#prueba-fechas");
   const selector = page.getByTestId(selectorId);
@@ -10,7 +10,17 @@ test("muestra 14 fechas corridas de Chile en un dispositivo de otra zona", async
   await expect(dates).toHaveCount(14);
   await expect(dates.first()).toHaveAttribute("data-date", "2026-10-27");
   await expect(dates.last()).toHaveAttribute("data-date", "2026-11-09");
+  const strip = selector.getByRole("region", { name: "Fechas de reserva o retiro" });
+  const rows = await dates.evaluateAll((buttons) =>
+    buttons.map((button) => Math.round(button.getBoundingClientRect().top)),
+  );
+  expect(new Set(rows).size).toBe(1);
+  expect(await strip.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+  await expect(selector.getByRole("group", { name: "Día", exact: true })).toBeVisible();
+  await expect(dates.first().locator(".dn")).toHaveText("Hoy");
   await dates.last().click();
+  await expect(dates.last()).toBeInViewport();
+  expect(await strip.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
   await expect(dates.last()).toHaveAttribute("aria-pressed", "true");
   await expect(selector.locator("[data-selected-date]")).toHaveAttribute(
     "data-selected-date",
@@ -93,7 +103,10 @@ test("incluye sábados, domingos y feriados con su condición visible", async ({
   await expect(holiday).toContainText(/feriado/i);
   await expect(sunday).toBeVisible();
   await expect(sunday).toBeDisabled();
-  await expect(sunday).toContainText(/domingo/i);
+  await expect(sunday).toHaveAttribute("aria-label", /domingo.*Cerrado.*Feriado/);
+  await expect(selector.getByRole("list", { name: "Referencias de cierres" })).toContainText(
+    "Día de Todos los Santos",
+  );
   await expect(saturday).toBeVisible();
   await expect(saturday).toBeEnabled();
   await saturday.click();
