@@ -108,7 +108,7 @@ test("la landing permite llegar a reservas y contactos públicos", async ({ page
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "Mecánica de precisión." })).toBeVisible();
-  await expect(page.getByText("hasta 30 días adelante", { exact: false })).toBeVisible();
+  await expect(page.getByText("14 días corridos desde hoy", { exact: false })).toBeVisible();
   await expect(page.locator("a.wa")).toHaveCount(0);
   await page.screenshot({
     path: resolve(evidenceDir, `landing-${testInfo.project.name}.png`),
@@ -148,8 +148,8 @@ test("la landing permite llegar a reservas y contactos públicos", async ({ page
   await page.locator(".hero").getByRole("link", { name: "Reservar hora" }).click();
   await expect(page).toHaveURL(/#reservar$/);
   const availability = await bookingResponse;
-  expect(new URL(availability.url()).searchParams.get("dias")).toBe("30");
-  expect((await availability.json()).days).toHaveLength(30);
+  expect(new URL(availability.url()).searchParams.get("dias")).toBe("14");
+  expect((await availability.json()).days).toHaveLength(14);
   await expect(page.getByRole("button", { name: "La dejo en el taller" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Retiro y devolución" }).first()).toBeVisible();
   await expect(
@@ -176,8 +176,8 @@ test("el selector completa una reserva de retiro y valida el formulario", async 
   );
   await page.locator(".hero").getByRole("link", { name: "Reservar hora" }).click();
   const firstResponse = await firstAvailability;
-  expect(new URL(firstResponse.url()).searchParams.get("dias")).toBe("30");
-  await expect(page.locator("button.day")).toHaveCount(30);
+  expect(new URL(firstResponse.url()).searchParams.get("dias")).toBe("14");
+  await expect(page.locator("button.day")).toHaveCount(14);
 
   await expect(page.locator("#mode-taller")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#f-comuna")).toBeHidden();
@@ -248,7 +248,7 @@ test("el selector completa una reserva de retiro y valida el formulario", async 
   });
 });
 
-test("selecciona y confirma un día posterior al 14 y respeta el máximo de 31", async ({
+test("selecciona la segunda semana del rango de 14 y respeta el máximo de API de 31", async ({
   page,
 }, testInfo) => {
   mkdirSync(evidenceDir, { recursive: true });
@@ -266,7 +266,7 @@ test("selecciona y confirma un día posterior al 14 y respeta el máximo de 31",
       blocks: Array<{ start: string; state: string }>;
     }>;
   };
-  expect(availability.days).toHaveLength(30);
+  expect(availability.days).toHaveLength(14);
 
   const from = new URL(availabilityResponse.url()).searchParams.get("desde");
   if (!from) throw new Error("La disponibilidad no indicó la fecha inicial.");
@@ -286,9 +286,9 @@ test("selecciona y confirma un día posterior al 14 y respeta el máximo de 31",
     { status: 422, count: null },
   ]);
 
-  const laterDay = availability.days.slice(14).find((day) => day.status === "open");
+  const laterDay = availability.days.slice(7).find((day) => day.status === "open");
   expect(laterDay).toBeDefined();
-  if (!laterDay) throw new Error("No hay un día abierto posterior al día 14 en la base E2E.");
+  if (!laterDay) throw new Error("No hay un día abierto en la segunda semana de la base E2E.");
 
   const dayButton = page.locator(`button.day[data-date="${laterDay.date}"]`);
   await expect(dayButton).toBeVisible();
@@ -297,13 +297,14 @@ test("selecciona y confirma un día posterior al 14 y respeta el máximo de 31",
 
   const firstFreeBlock = laterDay.blocks.find((block) => block.state === "free");
   expect(firstFreeBlock).toBeDefined();
-  if (!firstFreeBlock) throw new Error("El día posterior al 14 no tiene bloques libres.");
+  if (!firstFreeBlock)
+    throw new Error("El día elegido de la segunda semana no tiene bloques libres.");
   const slot = page.getByRole("button", { name: firstFreeBlock.start, exact: true });
   await expect(slot).toBeVisible();
   await slot.click();
   await expect(slot).toHaveAttribute("aria-pressed", "true");
 
-  await page.locator('input[name="nombre"]').fill("Reserva E2E día 15 a 30");
+  await page.locator('input[name="nombre"]').fill("Reserva E2E segunda semana");
   await page
     .locator('input[name="telefono"]')
     .fill(testInfo.project.name === "desktop" ? "55550301" : "55550302");
@@ -332,7 +333,7 @@ test("selecciona y confirma un día posterior al 14 y respeta el máximo de 31",
   expect(result.mode).toBe("taller");
   expect(result.fee).toBe(0);
   await page.locator(".done").screenshot({
-    path: resolve(evidenceDir, `reserva-dia-15-a-30-${testInfo.project.name}.png`),
+    path: resolve(evidenceDir, `reserva-segunda-semana-${testInfo.project.name}.png`),
     mask: [page.locator(".done p")],
     maskColor: "#fff",
   });

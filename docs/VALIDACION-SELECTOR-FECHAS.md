@@ -1,37 +1,35 @@
 # Validación del selector de fechas — punto 7
 
-Estado: **pendiente de completar y validar visualmente**. Este requisito no está aprobado ni se ha probado en navegador. Los resultados anteriores de escritorio y móvil no acreditan el cambio automático de día con la página abierta.
+## Criterio vigente
 
-## Requisito
+El responsable corrigió el rango a **14 días corridos**, incluido hoy y los 13 días siguientes, con fecha de `America/Santiago`. La prueba se realiza en el selector visible de `https://vectorbikestest.cl/#prueba-fechas`.
 
-El selector operativo debe mostrar exactamente 30 fechas consecutivas desde hoy, calculado en `America/Santiago`: hoy inclusive y los 29 días siguientes. Los días cerrados, feriados o sin cupo conservan las reglas actuales de disponibilidad.
+Sábados, domingos y feriados permanecen dentro de las 14 fechas. Los domingos se muestran cerrados; los feriados indican su nombre y están deshabilitados. Un sábado que no es feriado puede elegirse para la prueba. Esta selección no crea una reserva ni confirma cupos reales.
 
-Al cambiar la fecha en Chile debe quitar las fechas vencidas, incorporar las nuevas y actualizar la etiqueta «Hoy» automáticamente, sin otro despliegue ni recarga manual. También debe ponerse al día cuando una pestaña vuelve del segundo plano o de una suspensión.
+El rango elimina fechas vencidas y agrega las nuevas automáticamente, sin recarga manual ni despliegue diario. Se comprueba cada 30 segundos y al recuperar foco o visibilidad de la pestaña. Si la fecha seleccionada vence o deja de ser válida, la selección se limpia. Una fecha futura que sigue válida se conserva.
 
-## Estado observado en el código
+## Implementación
 
-- `src/components/islands/booking-state.ts`: `BOOKING_AVAILABILITY_DAYS` vale 30 y `bookingAvailabilityUrl` lo envía a la API.
-- `src/components/islands/BookingIsland.tsx`: `todayInSantiago` calcula la fecha chilena; cada llamada a `loadAvailability` obtiene una fecha actualizada. Sin embargo, la etiqueta `today` se memoriza una sola vez y la carga automática solo depende de la modalidad. No hay renovación por cambio de día o reanudación de la pestaña.
-- `src/pages/api/disponibilidad.ts`: la ruta no se prerenderiza y recibe un reloj nuevo en cada petición. `src/server/api/handlers.ts` rechaza un inicio pasado y genera el rango solicitado.
-- `src/server/booking/slots.ts`: `localToday` y `addDays` usan `America/Santiago` y suman días de calendario. El servidor permite hasta 31 resultados; la interfaz solicita 30 explícitamente.
-- `bookingReducer` conserva la fecha y el bloque seleccionados al renovar la disponibilidad; falta comprobar e invalidar una selección que haya vencido.
+- `booking-dates.ts`: fecha civil chilena, 14 fechas consecutivas y estado de domingos/feriados. Los feriados proceden del archivo existente `src/data/feriados-cl.json`; no se generan fechas festivas por suposición.
+- `useSantiagoDate.ts`: reloj compartido entre el selector público y la aplicación operativa; obtiene la fecha al hidratar, evitando fijar la fecha del build estático.
+- `PublicDateSelector.tsx`: selección visible y accesible, con motivos de cierre y anuncio de la fecha elegida.
+- `BookingIsland.tsx`: vuelve a consultar disponibilidad al cambiar el día y descarta respuestas de peticiones que quedaron antiguas.
+- `bookingReducer`: limpia la fecha y el bloque cuando la fecha elegida sale del rango vigente.
 
-Conclusión parcial: el rango se renueva por petición y no necesita despliegues, pero una pestaña que permanece abierta no lo renueva sola al pasar de día.
+El rango visible de 14 días no cambia el límite independiente de la API, cuya prueba de máximo 31 / rechazo de 32 permanece en la suite operativa.
 
-## Escenarios de aceptación pendientes
+## Validaciones requeridas
 
 | Escenario | Resultado esperado |
 |---|---|
-| Carga inicial | Hay 30 fechas, desde hoy en Chile hasta hoy + 29; no aparecen fechas anteriores y «Hoy» corresponde a la fecha chilena. |
-| Medianoche en Chile | Con la página abierta al cruzar medianoche, sale la fecha vencida, entra la nueva fecha final y quedan 30 fechas, sin recarga manual. |
-| Pestaña reanudada | Tras permanecer oculta o suspendida durante un cambio de día, recupera el rango vigente al volver a mostrarse o recibir foco. |
-| Selección vencida | Si la fecha o el bloque elegidos ya no son válidos, dejan de estar seleccionados y no se puede confirmar una reserva con esa selección. |
-| Cambio de horario de Chile | El rango conserva fechas consecutivas, sin duplicados ni saltos por días de 23 o 25 horas, y no depende de la zona del dispositivo. |
+| Carga inicial | 14 fechas desde hoy en Chile hasta hoy + 13, incluso si el dispositivo tiene otra zona horaria. |
+| Fin de semana y feriados | Sábados incluidos; domingos y feriados visibles, identificados y deshabilitados. |
+| Medianoche en Chile | Sale la fecha vencida, entra la nueva final y quedan 14 fechas sin recargar. Una selección vencida se elimina. |
+| Pestaña reanudada | Tras una suspensión, el rango se actualiza al recuperar el foco; conserva una selección que sigue válida. |
+| Cambio de horario | 14 fechas consecutivas, sin duplicados ni saltos por jornadas de 23 o 25 horas. |
 
-Las pruebas actuales verifican la petición de 30 días, los límites de fechas y una reserva posterior al día 14. Falta cubrir el paso de medianoche, la reanudación y la selección vencida, y conservar evidencia visual de escritorio y móvil de estos escenarios.
+Las pruebas de navegador están en `e2e-dates/date-selector.spec.ts`, con escritorio y móvil. El servidor de esa suite solo sirve el build público local: no usa PostgreSQL, no crea reservas ni envía correos. La comprobación final de publicación y sus capturas se registran en el informe de entrega.
 
-## Límite del alcance
+Validación local del 28 de octubre de 2026: los diez casos de navegador terminaron con sus aserciones correctas (cinco por tamaño), 64 pruebas unitarias focalizadas aprobadas y `pnpm check` con código 0. El build público también compiló correctamente. Se usó Chrome instalado, sin descargar un navegador en el equipo. El proceso local de Playwright no terminó después de los casos y se interrumpió durante el cierre; la ejecución de CI debe confirmar la salida completa de la suite.
 
-La validación corresponde al selector de la aplicación operativa en un entorno aislado de pruebas. El build `public-test` permanece informativo con `bookingEnabled=false`: este punto no activa reservas en `vectorbikestest.cl` ni incorpora allí rutas operativas.
-
-No se declara una validación de tablet ni una aprobación de la compuerta global.
+Tablet continúa fuera del alcance acordado. La entrega histórica de Replit no se reescribe: sus pruebas de 30 días describen una versión anterior al cambio de criterio a 14.

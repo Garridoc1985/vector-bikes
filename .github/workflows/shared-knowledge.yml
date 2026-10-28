@@ -9,6 +9,7 @@ permissions:
 jobs:
   public-site:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,6 +25,17 @@ jobs:
         run: corepack pnpm@12.4.2 exec vitest run tests/unit/assistant.test.ts tests/unit/public-knowledge.test.ts --pool=forks --maxWorkers=1
       - name: Compilar páginas públicas
         run: corepack pnpm@12.4.2 exec astro build --config astro.public-test.config.mjs
+      - name: Preparar navegador de pruebas
+        run: corepack pnpm@12.4.2 exec playwright install --with-deps chromium
+      - name: Validar selector visible en escritorio y móvil
+        run: corepack pnpm@12.4.2 exec playwright test --config playwright.dates.config.ts
+      - name: Guardar evidencias del selector
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: date-selector-desktop-mobile
+          path: test-results/
+          if-no-files-found: ignore
   regression:
     needs: public-site
     runs-on: ubuntu-latest

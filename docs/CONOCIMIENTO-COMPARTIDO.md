@@ -34,6 +34,12 @@ La variante pública ofrece contacto por teléfono o correo. No publica reservas
 paneles, datos de clientes ni endpoints operativos. El paquete de conocimiento
 describe expresamente esta condición informativa.
 
+Por solicitud del responsable, la portada incluye en `/#prueba-fechas` un
+selector de prueba con 14 días corridos de Chile. Muestra sábados, domingos y
+feriados e identifica los cierres. La fecha se actualiza en el navegador sin
+despliegues diarios. Elegir una fecha no crea una reserva ni confirma cupos.
+El criterio y la validación están en `VALIDACION-SELECTOR-FECHAS.md`.
+
 Las variables `AI_ASSISTANT_ENABLED`, `AI_MODEL`, `OPENAI_API_KEY` y
 `OPENAI_BASE_URL` se configuran en Netlify con alcance de Functions. Sus valores
 no se guardan en Git. El paquete `/geo/` funciona independientemente del proveedor
